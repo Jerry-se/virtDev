@@ -20,8 +20,8 @@ namespace virtDev {
     unsigned long major = ver / 1000000;
     ver = ver % 1000000;
     unsigned long minor = ver / 1000;
-    unsigned long release = ver % 1000;
-    return stringPrintf("%lu.%lu.%lu", major, minor, release);
+    unsigned long micro = ver % 1000;
+    return stringPrintf("%lu.%lu.%lu", major, minor, micro);
   }
 
   void parseVersion() {
