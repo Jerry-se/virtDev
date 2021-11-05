@@ -8,7 +8,12 @@
 const static char* virUri = "qemu+tcp://localhost/system";
 char* domain_name = NULL;
 virConnectPtr connect = nullptr;
+// enum virDomainState
 const char* arrayState[] = {"no state", "running", "blocked", "paused", "shutdown", "shutoff", "crashed", "pmsuspended", "last"};
+// enum virDomainEventType
+const char* arrayEventType[] = {"VIR_DOMAIN_EVENT_DEFINED", "VIR_DOMAIN_EVENT_UNDEFINED", "VIR_DOMAIN_EVENT_STARTED",
+  "VIR_DOMAIN_EVENT_SUSPENDED", "VIR_DOMAIN_EVENT_RESUMED", "VIR_DOMAIN_EVENT_STOPPED",
+  "VIR_DOMAIN_EVENT_SHUTDOWN", "VIR_DOMAIN_EVENT_PMSUSPENDED", "VIR_DOMAIN_EVENT_CRASHED"};
 int t1_running = 1;
 int t2_running = 1;
 int t3_running = 1;
@@ -91,39 +96,16 @@ void thread_func3() {
 
 int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail, void *opaque) {
   printf("event lifecycle cb called, event=%d, detail=%d\n", event, detail);
-  const char* name = virDomainGetName(dom);
-  switch (event)
-  {
-  case virDomainEventType::VIR_DOMAIN_EVENT_DEFINED:
-    printf("domain %s defined\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_UNDEFINED:
-    printf("domain %s undefined\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_STARTED:
-    printf("domain %s started\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_SUSPENDED:
-    printf("domain %s suspended\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_RESUMED:
-    printf("domain %s resumed\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_STOPPED:
-    printf("domain %s stoped\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_SHUTDOWN:
-    printf("domain %s shutdown\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_PMSUSPENDED:
-    printf("domain %s pmsuspended\n", name);
-    break;
-  case virDomainEventType::VIR_DOMAIN_EVENT_CRASHED:
-    printf("domain %s crashed\n", name);
-    break;
-  default:
+  if (event >= 0 && event <= virDomainEventType::VIR_DOMAIN_EVENT_CRASHED) {
+    const char* name = virDomainGetName(dom);
+    int domain_state = 0;
+    if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
+      domain_state = 0;
+    }
+    printf("domain %s %s, state %s\n", name, arrayEventType[event], arrayState[domain_state]);
+  }
+  else {
     printf("unknowned event\n");
-    break;
   }
 }
 
@@ -132,18 +114,23 @@ void event_lifecycle_cb(virDomainPtr conn, virDomainPtr dom, void *opaque) {
 }
 
 int main(int argc, char *argv[]) {
-  if (argc != 2)
+  if (argc != 2) {
+    printf("usage: virTest domain_name\n");
     return -1;
+  }
 
   int ret = virEventRegisterDefaultImpl();
   if (ret < 0) {
     printf("virEventRegisterDefaultImpl failed\n");
     return -1;
   }
+
   domain_name = argv[1];
   connect = virConnectOpen(virUri);
-  if (!connect)
+  if (!connect) {
+    printf("connect failed\n");
     return -1;
+  }
 
   int callback_id = virConnectDomainEventRegisterAny(connect, NULL,
     virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_cb), NULL, NULL);

@@ -1,3 +1,4 @@
 .vscode
+virThreadSafe/virMonitor
 virThreadSafe/virTest
 virTool/virTool
