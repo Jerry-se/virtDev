@@ -11,6 +11,7 @@ virConnectPtr connect = nullptr;
 const char* arrayState[] = {"no state", "running", "blocked", "paused", "shutdown", "shutoff", "crashed", "pmsuspended", "last"};
 int t1_running = 1;
 int t2_running = 1;
+int t3_running = 1;
 
 void thread_func1() {
   printf("thread t1 begin\n");
@@ -84,24 +85,83 @@ void thread_func3() {
     }
     virDomainFree(domain_);
   }
+  t3_running = 0;
   printf("thread t3 end\n");
+}
+
+int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail, void *opaque) {
+  printf("event lifecycle cb called, event=%d, detail=%d\n", event, detail);
+  const char* name = virDomainGetName(dom);
+  switch (event)
+  {
+  case virDomainEventType::VIR_DOMAIN_EVENT_DEFINED:
+    printf("domain %s defined\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_UNDEFINED:
+    printf("domain %s undefined\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_STARTED:
+    printf("domain %s started\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_SUSPENDED:
+    printf("domain %s suspended\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_RESUMED:
+    printf("domain %s resumed\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_STOPPED:
+    printf("domain %s stoped\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_SHUTDOWN:
+    printf("domain %s shutdown\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_PMSUSPENDED:
+    printf("domain %s pmsuspended\n", name);
+    break;
+  case virDomainEventType::VIR_DOMAIN_EVENT_CRASHED:
+    printf("domain %s crashed\n", name);
+    break;
+  default:
+    printf("unknowned event\n");
+    break;
+  }
+}
+
+void event_lifecycle_cb(virDomainPtr conn, virDomainPtr dom, void *opaque) {
+  printf("event lifecycle cb called\n");
 }
 
 int main(int argc, char *argv[]) {
   if (argc != 2)
     return -1;
+
+  int ret = virEventRegisterDefaultImpl();
+  if (ret < 0) {
+    printf("virEventRegisterDefaultImpl failed\n");
+    return -1;
+  }
   domain_name = argv[1];
   connect = virConnectOpen(virUri);
   if (!connect)
     return -1;
 
+  int callback_id = virConnectDomainEventRegisterAny(connect, NULL,
+    virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_cb), NULL, NULL);
+
   std::thread t1(thread_func1);
   std::thread t2(thread_func2);
   std::thread t3(thread_func3);
+
+  while (t1_running == 1 || t2_running == 1 || t3_running == 1) {
+    if (virEventRunDefaultImpl() < 0) {
+      printf("virEventRunDefaultImpl failed\n");
+    }
+  }
   t1.join();
   t2.join();
   t3.join();
 
+  virConnectDomainEventDeregisterAny(connect, callback_id);
   virConnectClose(connect);
   return 0;
 }
