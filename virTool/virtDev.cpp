@@ -1,14 +1,16 @@
 #include "virtDev.h"
 
 #include <iostream>
+#include <fstream>
 #include <string>
 #include <stdarg.h>
 #include <stdio.h>
+#include <unistd.h>
 
-#include "virTool.h"
+#include "virImpl.h"
 
-namespace virtDev {
-  const static char* virUri = "qemu+tcp://localhost/system";
+namespace virTool {
+  const static char* virUri = "qemu+tcp://localhost:16509/system";
 
   std::string stringPrintf(const char* format, ...) {
     char str[1024];
@@ -26,6 +28,15 @@ namespace virtDev {
     unsigned long micro = ver % 1000;
     return stringPrintf("%lu.%lu.%lu", major, minor, micro);
   }
+
+  class virToolDelegateImpl : public virToolDelegate {
+  public:
+    virToolDelegateImpl() {}
+    ~virToolDelegateImpl() {}
+    void PrintErrorMessage(virError *err) override {
+      std::cout << "vir error occured: " << err->message << std::endl;
+    }
+  };
 
   void parseVersion() {
     virTool virTool_;
@@ -79,6 +90,45 @@ namespace virtDev {
         virDomainFree(domains[i]);
     }
     free(domains);
+  }
+
+  void parseCreateDomain(const char* xml_file) {
+    std::string xml_content;
+    {
+      std::ifstream ifs(xml_file, std::ios::in);
+      if (ifs.is_open()) {
+        ifs.seekg(0, std::ios::end);
+        int length = ifs.tellg();
+        ifs.seekg(0, std::ios::beg);
+        xml_content.resize(length);
+        ifs.read(&xml_content[0], length);
+        ifs.close();
+      }
+      else {
+        std::cout << "open xml file failed" << std::endl;
+        return;
+      }
+    }
+    if (xml_content.empty()) {
+      std::cout << "xml file is empty" << std::endl;
+      return;
+    }
+    virTool virTool_;
+    virTool_.ConnectOpen(virUri);
+    if (virTool_.DomainCreate(xml_content.c_str()) < 0) {
+      std::cout << "create domain failed" << std::endl;
+      return;
+    }
+    int32_t try_count = 0;
+    while (try_count ++ < 100) {
+      virTool_.DomainInterfaceAddress();
+      sleep(3);
+    }
+    try_count = 0;
+    while (try_count++ < 10) {
+      if (virTool_.DomainSetUserPassword("dbc", "vm123456") == 0)
+        break;
+    }
   }
 
   void parseSuspendDomain(const char* domainName) {

@@ -2,6 +2,6 @@
 
 rm -f ./virTool
 
-g++ main.cpp virtDev.cpp virTool.cpp -o virTool -lvirt
+g++ main.cpp virtDev.cpp virImpl.cpp -o virTool -lvirt -lpthread
 
 echo 'build success'

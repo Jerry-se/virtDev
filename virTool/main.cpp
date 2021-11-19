@@ -11,22 +11,29 @@ void parseCommand(int argc, char *argv[]) {
   op = argv[1];
   if (argc > 2) domName = argv[2];
   if (op == "ver" || op == "version")
-    virtDev::parseVersion();
+    virTool::parseVersion();
   else if (op == "list")
-    virtDev::parseList();
+    virTool::parseList();
+  else if (op == "create") {
+    if (domName.empty()) {
+      std::cout << "format: virTool operation [xml path]" << std::endl;
+      return;
+    }
+    virTool::parseCreateDomain(domName.c_str());
+  }
   else if (op == "suspend") {
     if (domName.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
       return;
     }
-    virtDev::parseSuspendDomain(domName.c_str());
+    virTool::parseSuspendDomain(domName.c_str());
   }
   else if (op == "resume") {
     if (domName.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
       return;
     }
-    virtDev::parseResumeDomain(domName.c_str());
+    virTool::parseResumeDomain(domName.c_str());
   }
   else
     std::cout << "unknown operation" << std::endl;
