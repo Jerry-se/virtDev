@@ -2,6 +2,30 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+// void virConnectDeleter(virConnectPtr conn) {
+//     virConnectClose(conn);
+//     printf("vir connect close\n");
+// }
+
+// void virDomainDeleter(virDomainPtr domain) {
+//     virDomainFree(domain);
+//     printf("vir domain free\n");
+// }
+
+struct virConnectDeleter {
+    inline void operator()(virConnectPtr conn) {
+        virConnectClose(conn);
+        printf("vir connect close\n");
+    }
+};
+
+struct virDomainDeleter {
+    inline void operator()(virDomainPtr domain) {
+        virDomainFree(domain);
+        printf("vir domain free\n");
+    }
+};
+
 namespace virTool {
 
 // enum virDomainState
@@ -26,161 +50,79 @@ int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail,
   }
 }
 
-virTool::virTool(virToolDelegate *delegate) :
- connectPtr_(nullptr),
- domainPtr_(nullptr),
- delegate_(delegate),
- thread_quit_(1),
- thread_event_loop_(nullptr) {
-  int ret = virEventRegisterDefaultImpl();
-  if (ret < 0) {
-    printf("virEventRegisterDefaultImpl failed\n");
-  }
-}
-
-virTool::~virTool() {
-  thread_quit_ = 1;
-  if (thread_event_loop_ && thread_event_loop_->joinable())
-    thread_event_loop_->join();
-  if (connectPtr_)
-    virConnectDomainEventDeregisterAny(connectPtr_, callback_id_);
-  DomainFree();
-  ConnectClose();
-}
-
-int virTool::GetVersion(unsigned long *libVer, const char *type, unsigned long *typeVer) {
-  return virGetVersion(libVer, type, typeVer);
-}
-
-bool virTool::ConnectOpen(const char *name) {
-  connectPtr_ = virConnectOpen(name);
-  if (connectPtr_) {
-    callback_id_ = virConnectDomainEventRegisterAny(connectPtr_, NULL,
-      virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_cb), NULL, NULL);
-    thread_quit_ = 0;
-    thread_event_loop_ = new std::thread(&virTool::DefaultThreadFunc, this);
-  }
-  return !!connectPtr_;
-}
-
-bool virTool::ConnectOpenReadOnly(const char *name) {
-  connectPtr_ = virConnectOpenReadOnly(name);
-  return !!connectPtr_;
-}
-
-int virTool::ConnectClose() {
-  if (!connectPtr_) return -1;
-  int ret = virConnectClose(connectPtr_);
-  connectPtr_ = nullptr;
-  return ret;
-}
-
-int virTool::ConnectGetVersion(unsigned long *hvVer) {
-  if (!connectPtr_) return -1;
-  return virConnectGetVersion(connectPtr_, hvVer);
-}
-
-int virTool::ConnectGetLibVersion(unsigned long *libVer) {
-  if (!connectPtr_) return -1;
-  return virConnectGetLibVersion(connectPtr_, libVer);
-}
-
-void virTool::PrintLastError() {
+static inline void PrintLastError() {
   virError *err = virGetLastError();
   if (err) {
-    if (delegate_)
-      delegate_->PrintErrorMessage(err);
     printf("vir error occured: %s\n", err->message);
     virFreeError(err);
   }
 }
 
-int virTool::ConnectListAllDomains(virDomainPtr **domains, unsigned int flags) {
-  if (!connectPtr_) return -1;
-  return virConnectListAllDomains(connectPtr_, domains, flags);
+virDomainImpl::virDomainImpl(virDomainPtr domain)
+  : domain_(std::shared_ptr<virDomain>(domain, virDomainDeleter())) {
 }
 
-int virTool::ConnectListDomains(int *ids, int maxids) {
-  if (!connectPtr_) return -1;
-  return virConnectListDomains(connectPtr_, ids, maxids);
+virDomainImpl::~virDomainImpl() {
+
 }
 
-int virTool::ConnectNumOfDomains() {
-  if (!connectPtr_) return -1;
-  return virConnectNumOfDomains(connectPtr_);
+int32_t virDomainImpl::startDomain() {
+  if (!domain_) return -1;
+  return virDomainCreate(domain_.get());
 }
 
-int virTool::DomainFree() {
-  if (!domainPtr_) return -1;
-  int ret = virDomainFree(domainPtr_);
-  domainPtr_ = nullptr;
-  return ret;
+int32_t virDomainImpl::suspendDomain() {
+  if (!domain_) return -1;
+  return virDomainSuspend(domain_.get());
 }
 
-int virTool::DomainGetInfo(virDomainInfoPtr info) {
-  if (!domainPtr_) return -1;
-  return virDomainGetInfo(domainPtr_, info);
+int32_t virDomainImpl::resumeDomain() {
+  if (!domain_) return -1;
+  return virDomainResume(domain_.get());
 }
 
-int virTool::DomainGetState(int *state, int *reason, unsigned int flags) {
-  if (!domainPtr_) return -1;
-  return virDomainGetState(domainPtr_, state, reason, flags);
+int32_t virDomainImpl::rebootDomain() {
+  if (!domain_) return -1;
+  return virDomainReboot(domain_.get(), VIR_DOMAIN_REBOOT_DEFAULT);
 }
 
-bool virTool::DomainLookupByID(int id) {
-  if (!connectPtr_) return -1;
-  domainPtr_ = virDomainLookupByID(connectPtr_, id);
-  return !!domainPtr_;
+int32_t virDomainImpl::shutdownDomain() {
+  if (!domain_) return -1;
+  return virDomainShutdown(domain_.get());
 }
 
-bool virTool::DomainLookupByName(const char *name) {
-  if (!connectPtr_) return -1;
-  domainPtr_ = virDomainLookupByName(connectPtr_, name);
-  return !!domainPtr_;
+int32_t virDomainImpl::destroyDomain() {
+  if (!domain_) return -1;
+  return virDomainDestroy(domain_.get());
 }
 
-bool virTool::DomainLookupByUUID(const unsigned char *uuid) {
-  if (!connectPtr_) return -1;
-  domainPtr_ = virDomainLookupByUUID(connectPtr_, uuid);
-  return !!domainPtr_;
+int32_t virDomainImpl::resetDomain() {
+  if (!domain_) return -1;
+  return virDomainReset(domain_.get(), 0);
 }
 
-bool virTool::DomainLookupByUUIDString(const char *uuid) {
-  if (!connectPtr_) return -1;
-  domainPtr_ = virDomainLookupByUUIDString(connectPtr_, uuid);
-  return !!domainPtr_;
+int32_t virDomainImpl::undefineDomain() {
+  if (!domain_) return -1;
+  return virDomainUndefine(domain_.get());
 }
 
-virDomainPtr virTool::DomainDefineXML(const char *xml) {
-  if (!connectPtr_) return nullptr;
-  return virDomainDefineXML(connectPtr_, xml);
+int virDomainImpl::getDomainInfo(virDomainInfoPtr info) {
+  if (!domain_) return -1;
+  return virDomainGetInfo(domain_.get(), info);
 }
 
-int virTool::DomainCreate(const char *xml) {
-  if (domainPtr_) return -2;
-  if (!connectPtr_) return -1;
-  virDomainPtr domain = DomainDefineXML(xml);
-  if (!domain) {
-    PrintLastError();
-    return -1;
-  }
-  int ret = virDomainCreate(domain);
-  if (ret < 0) {
-    PrintLastError();
-    virDomainFree(domain);
-    return ret;
-  }
-  domainPtr_ = domain;
-  return ret;
+int virDomainImpl::getDomainState(int *state, int *reason, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainGetState(domain_.get(), state, reason, flags);
 }
 
-int virTool::DomainInterfaceAddress() {
-  if (!domainPtr_) return -1;
+int virDomainImpl::getDomainInterfaceAddress() {
+  if (!domain_) return -1;
   virDomainInterfacePtr *ifaces = nullptr;
   int ifaces_count = 0;
   size_t i, j;
 
-  if ((ifaces_count = virDomainInterfaceAddresses(domainPtr_, &ifaces,
+  if ((ifaces_count = virDomainInterfaceAddresses(domain_.get(), &ifaces,
           VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)) < 0)
     goto cleanup;
 
@@ -207,23 +149,145 @@ cleanup:
   return ifaces_count;
 }
 
-int virTool::DomainSetUserPassword(const char *user, const char *password) {
-  if (!domainPtr_) return -1;
-  int ret = virDomainSetUserPassword(domainPtr_, user, password, 0);
-  if (ret != 0) {
-    PrintLastError();
+int virDomainImpl::setDomainUserPassword(const char *user, const char *password) {
+  if (!domain_) return -1;
+  return virDomainSetUserPassword(domain_.get(), user, password, 0);
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+
+virTool::virTool(bool enableEvent)
+  : conn_(nullptr)
+  , enable_event_(enableEvent)
+  , callback_id_(-1)
+  , thread_quit_(1)
+  , thread_event_loop_(nullptr) {
+  if (enableEvent) {
+    int ret = virEventRegisterDefaultImpl();
+    if (ret < 0) {
+      printf("virEventRegisterDefaultImpl failed\n");
+    }
   }
-  return ret;
 }
 
-int virTool::DomainSuspend() {
-  if (!domainPtr_) return -1;
-  return virDomainSuspend(domainPtr_);
+virTool::~virTool() {
+  thread_quit_ = 1;
+  if (thread_event_loop_) {
+    if (thread_event_loop_->joinable())
+      thread_event_loop_->join();
+    delete thread_event_loop_;
+  }
+  if (conn_ && enable_event_)
+    virConnectDomainEventDeregisterAny(conn_.get(), callback_id_);
 }
 
-int virTool::DomainResume() {
-  if (!domainPtr_) return -1;
-  return virDomainResume(domainPtr_);
+int virTool::getVersion(unsigned long *libVer, const char *type, unsigned long *typeVer) {
+  return virGetVersion(libVer, type, typeVer);
+}
+
+int virTool::getConnectVersion(unsigned long *hvVer) {
+  if (!conn_) return -1;
+  return virConnectGetVersion(conn_.get(), hvVer);
+}
+
+int virTool::getConnectLibVersion(unsigned long *libVer) {
+  if (!conn_) return -1;
+  return virConnectGetLibVersion(conn_.get(), libVer);
+}
+
+bool virTool::openConnect(const char *name) {
+  // if (conn_) return true;
+  virConnectPtr connectPtr = virConnectOpen(name);
+  if (connectPtr == nullptr) {
+      return false;
+  }
+  conn_.reset(connectPtr, virConnectDeleter());
+  if (connectPtr && enable_event_) {
+    callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
+      virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_cb), NULL, NULL);
+    thread_quit_ = 0;
+    thread_event_loop_ = new std::thread(&virTool::DefaultThreadFunc, this);
+  }
+  return !!conn_;
+}
+
+bool virTool::openConnectReadOnly(const char *name) {
+  // virConnectPtr connectPtr = virConnectOpenReadOnly(name);
+  // return !!connectPtr;
+  return false;
+}
+
+int virTool::listAllDomains(virDomainPtr **domains, unsigned int flags) {
+  if (!conn_) return -1;
+  return virConnectListAllDomains(conn_.get(), domains, flags);
+}
+
+int virTool::listDomains(int *ids, int maxids) {
+  if (!conn_) return -1;
+  return virConnectListDomains(conn_.get(), ids, maxids);
+}
+
+int virTool::numOfDomains() {
+  if (!conn_) return -1;
+  return virConnectNumOfDomains(conn_.get());
+}
+
+std::shared_ptr<virDomainImpl> virTool::openDomainByID(int id) {
+  if (!conn_) return nullptr;
+  virDomainPtr domainPtr = virDomainLookupByID(conn_.get(), id);
+  if (nullptr == domainPtr) {
+    return nullptr;
+  }
+  return std::make_shared<virDomainImpl>(domainPtr);
+}
+
+std::shared_ptr<virDomainImpl> virTool::openDomainByName(const char *domain_name) {
+  if (!conn_) return nullptr;
+  virDomainPtr domainPtr = virDomainLookupByName(conn_.get(), domain_name);
+  if (nullptr == domainPtr) {
+    return nullptr;
+  }
+  return std::make_shared<virDomainImpl>(domainPtr);
+}
+
+std::shared_ptr<virDomainImpl> virTool::openDomainByUUID(const unsigned char *uuid) {
+  if (!conn_) return nullptr;
+  virDomainPtr domainPtr = virDomainLookupByUUID(conn_.get(), uuid);
+  if (nullptr == domainPtr) {
+    return nullptr;
+  }
+  return std::make_shared<virDomainImpl>(domainPtr);
+}
+
+std::shared_ptr<virDomainImpl> virTool::openDomainByUUIDString(const char *uuid) {
+  if (!conn_) return nullptr;
+  virDomainPtr domainPtr = virDomainLookupByUUIDString(conn_.get(), uuid);
+  if (nullptr == domainPtr) {
+    return nullptr;
+  }
+  return std::make_shared<virDomainImpl>(domainPtr);
+}
+
+std::shared_ptr<virDomainImpl> virTool::createDomain(const char *xml_content) {
+  if (!conn_) return nullptr;
+  virDomainPtr domainPtr = virDomainDefineXML(conn_.get(), xml_content);
+  if (nullptr == domainPtr) {
+    return nullptr;
+  }
+  std::shared_ptr<virDomainImpl> dom = std::make_shared<virDomainImpl>(domainPtr);
+  if (dom && dom->startDomain() < 0) {
+    return nullptr;
+  }
+  return std::move(dom);
+}
+
+std::shared_ptr<virDomainImpl> virTool::defineDomain(const char *xml_content) {
+  if (!conn_) return nullptr;
+  virDomainPtr domainPtr = virDomainDefineXML(conn_.get(), xml_content);
+  if (nullptr == domainPtr) {
+    return nullptr;
+  }
+  return std::make_shared<virDomainImpl>(domainPtr);
 }
 
 void virTool::DefaultThreadFunc() {

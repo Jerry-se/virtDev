@@ -29,6 +29,14 @@ namespace virTool {
     return stringPrintf("%lu.%lu.%lu", major, minor, micro);
   }
 
+  static inline void PrintLastError() {
+    virError *err = virGetLastError();
+    if (err) {
+      std::cout << "vir error occured: " << err->message << std::endl;
+      virFreeError(err);
+    }
+  }
+
   class virToolDelegateImpl : public virToolDelegate {
   public:
     virToolDelegateImpl() {}
@@ -40,19 +48,27 @@ namespace virTool {
 
   void parseVersion() {
     virTool virTool_;
-    virTool_.ConnectOpen(virUri);
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
     unsigned long libVer = 0;
-    if (virTool::GetVersion(&libVer, NULL, NULL) == 0)
+    if (virTool::getVersion(&libVer, NULL, NULL) == 0)
       std::cout << "virGetVersion: " << translateVirVer(libVer) << " " << libVer << std::endl;
-    if (virTool_.ConnectGetVersion(&libVer) == 0)
+    if (virTool_.getConnectVersion(&libVer) == 0)
       std::cout << "virConnectGetVersion: " << translateVirVer(libVer) << " " << libVer << std::endl;
-    if (virTool_.ConnectGetLibVersion(&libVer) == 0)
+    if (virTool_.getConnectLibVersion(&libVer) == 0)
       std::cout << "virConnectGetLibVersion: " << translateVirVer(libVer) << " " << libVer << std::endl;
   }
 
   void parseList() {
     virTool virTool_;
-    virTool_.ConnectOpen(virUri);
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
     // 方法一，不推荐
     // int nums = virTool_.ConnectNumOfDomains();
     // if (nums < 1) {
@@ -76,18 +92,18 @@ namespace virTool {
     // 方法二
     virDomainPtr *domains;
     unsigned int flags = 0b11111111111111;// VIR_CONNECT_LIST_DOMAINS_RUNNING | VIR_CONNECT_LIST_DOMAINS_PERSISTENT;
-    int ret = virTool_.ConnectListAllDomains(&domains, flags);
+    int ret = virTool_.listAllDomains(&domains, flags);
     if (ret < 0)
       std::cout << "virConnectListAllDomains error" << std::endl;
     for (int i = 0; i < ret; i++) {
-        // do_something_with_domain(domains[i]);
-        virDomainInfo info;
-        if (virDomainGetInfo(domains[i], &info) == 0) {
-          std::cout << stringPrintf("domain id: %d, state: %hhu, maxMem: %lu, memory: %lu, nrVirtCpu: %hu, cpuTime: %llu",
-          virDomainGetID(domains[i]), info.state, info.maxMem, info.memory, info.nrVirtCpu, info.cpuTime) << std::endl;
-        }
-        //here or in a separate loop if needed
-        virDomainFree(domains[i]);
+      // do_something_with_domain(domains[i]);
+      virDomainInfo info;
+      if (virDomainGetInfo(domains[i], &info) == 0) {
+        std::cout << stringPrintf("domain id: %d, state: %hhu, maxMem: %lu, memory: %lu, nrVirtCpu: %hu, cpuTime: %llu",
+        virDomainGetID(domains[i]), info.state, info.maxMem, info.memory, info.nrVirtCpu, info.cpuTime) << std::endl;
+      }
+      //here or in a separate loop if needed
+      virDomainFree(domains[i]);
     }
     free(domains);
   }
@@ -113,43 +129,63 @@ namespace virTool {
       std::cout << "xml file is empty" << std::endl;
       return;
     }
-    virTool virTool_;
-    virTool_.ConnectOpen(virUri);
-    if (virTool_.DomainCreate(xml_content.c_str()) < 0) {
+    virTool virTool_(true);
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.createDomain(xml_content.c_str());
+    if (!domain) {
+      PrintLastError();
       std::cout << "create domain failed" << std::endl;
       return;
     }
     int32_t try_count = 0;
-    while (try_count ++ < 100) {
-      virTool_.DomainInterfaceAddress();
+    while (try_count ++ < 10) {
+      domain->getDomainInterfaceAddress();
       sleep(3);
     }
     try_count = 0;
     while (try_count++ < 10) {
-      if (virTool_.DomainSetUserPassword("dbc", "vm123456") == 0)
+      if (domain->setDomainUserPassword("dbc", "vm123456") == 0)
         break;
     }
+    std::cout << "create domain success" << std::endl;
+    domain.reset();
   }
 
   void parseSuspendDomain(const char* domainName) {
     virTool virTool_;
-    virTool_.ConnectOpen(virUri);
-    if (virTool_.DomainLookupByName(domainName)) {
-      int ret = virTool_.DomainSuspend();
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      int ret = domain->suspendDomain();
       std::cout << "suspend domain " << (ret == 0 ? "ok" : "failed") << std::endl;
     }
     else
       std::cout << "can not find domain: " << domainName << std::endl;
+    domain.reset();
   }
 
   void parseResumeDomain(const char* domainName) {
     virTool virTool_;
-    virTool_.ConnectOpen(virUri);
-    if (virTool_.DomainLookupByName(domainName)) {
-      int ret = virTool_.DomainResume();
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      int ret = domain->resumeDomain();
       std::cout << "resume domain " << (ret == 0 ? "ok" : "failed") << std::endl;
     }
     else
       std::cout << "can not find domain: " << domainName << std::endl;
+    domain.reset();
   }
 }

@@ -1,10 +1,11 @@
 #ifndef _VIRDEV_VIR_TOOL_H_
 #define _VIRDEV_VIR_TOOL_H_
 
+#include <memory>
+#include <thread>
+
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
-
-#include <thread>
 
 namespace virTool {
 
@@ -13,9 +14,63 @@ public:
   virtual void PrintErrorMessage(virError *err) = 0;
 };
 
+class virDomainImpl {
+public:
+  virDomainImpl() = delete;
+  explicit virDomainImpl(virDomainPtr domain);
+  ~virDomainImpl();
+
+  int32_t startDomain();
+
+  /**
+   * @brief Suspends an active domain, the process is frozen without further access to CPU resources and I/O but the memory used by the domain
+   * at the hypervisor level will stay allocated. Use virDomainResume() to reactivate the domain. This function may require privileged access.
+   * Moreover, suspend may not be supported if domain is in some special state like VIR_DOMAIN_PMSUSPENDED.
+   * @param domain   a domain object
+   *
+   * @return 0 in case of success and -1 in case of failure.
+   *     -<em>-1</em> fail
+   *     -<em>0</em> succeed
+   */
+  int32_t suspendDomain();
+
+  /**
+   * @brief Resume a suspended domain, the process is restarted from the state where it was frozen by calling virDomainSuspend().
+   * This function may require privileged access Moreover, resume may not be supported if domain is in some special state like VIR_DOMAIN_PMSUSPENDED.
+   * @param domain   a domain object
+   *
+   * @return 0 in case of success and -1 in case of failure.
+   *     -<em>-1</em> fail
+   *     -<em>0</em> succeed
+   */
+  int32_t resumeDomain();
+
+  int32_t rebootDomain();
+
+  int32_t shutdownDomain();
+
+  int32_t destroyDomain();
+
+  int32_t resetDomain();
+
+  int32_t undefineDomain();
+
+  // returns 0 in case of success and -1 in case of failure.
+  int getDomainInfo(virDomainInfoPtr info);
+  // returns 0 in case of success and -1 in case of failure.
+  int getDomainState(int *state, int *reason, unsigned int flags);
+
+  int getDomainInterfaceAddress();
+
+  int setDomainUserPassword(const char *user, const char *password);
+
+protected:
+  std::shared_ptr<virDomain> domain_;
+};
+
 class virTool {
 public:
-  virTool(virToolDelegate *delegate = nullptr);
+  explicit virTool(bool enableEvent = false);
   ~virTool();
 
   // host
@@ -35,25 +90,8 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  static int GetVersion(unsigned long *libVer, const char *type, unsigned long *typeVer);
+  static int getVersion(unsigned long *libVer, const char *type, unsigned long *typeVer);
 
-  bool ConnectOpen(const char *name);
-  bool ConnectOpenReadOnly(const char *name);
-
-  /**
-   * @brief This function closes the connection to the Hypervisor. This should not be called if further interaction with the Hypervisor are needed
-   * especially if there is running domain which need further monitoring by the application.
-   * @param conn     pointer to the hypervisor connection
-   *
-   * @return a positive number if at least 1 reference remains on success. The returned value should not be assumed to be the total reference count.
-   * A return of 0 implies no references remain and the connection is closed and memory has been freed. A return of -1 implies a failure.
-   * It is possible for the last virConnectClose to return a positive value if some other object still has a temporary reference to the connection,
-   * but the application should not try to further use a connection after the virConnectClose that matches the initial open.
-   *     -<em>-1</em> fail
-   *     -<em>0</em> succeed
-   *     -<em>1</em> still has a temporary reference to the connection
-   */
-  int ConnectClose();
   /**
    * @brief Get the version level of the Hypervisor running. This may work only with hypervisor call, i.e. with privileged access to the hypervisor,
    * not with a Read-Only connection.
@@ -65,7 +103,7 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int ConnectGetVersion(unsigned long *hvVer);
+  int getConnectVersion(unsigned long *hvVer);
   /**
    * @brief Provides libVer, which is the version of libvirt used by the daemon running on the conn host
    * @param conn     pointer to the hypervisor connection
@@ -75,68 +113,32 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int ConnectGetLibVersion(unsigned long *libVer);
+  int getConnectLibVersion(unsigned long *libVer);
 
-  void PrintLastError();
+  bool openConnect(const char *name);
+  bool openConnectReadOnly(const char *name);
 
   // domain
   // returns the number of domains found or -1 and sets domains to NULL in case of error.
-  int ConnectListAllDomains(virDomainPtr **domains, unsigned int flags);
+  int listAllDomains(virDomainPtr **domains, unsigned int flags);
   // returns -1 in case of error
-  int ConnectListDomains(int *ids, int maxids);
-  int ConnectNumOfDomains();
+  int listDomains(int *ids, int maxids);
+  int numOfDomains();
 
-  int DomainFree();
+  std::shared_ptr<virDomainImpl> openDomainByID(int id);
+  std::shared_ptr<virDomainImpl> openDomainByName(const char *domain_name);
+  std::shared_ptr<virDomainImpl> openDomainByUUID(const unsigned char *uuid);
+  std::shared_ptr<virDomainImpl> openDomainByUUIDString(const char *uuid);
 
-  // returns 0 in case of success and -1 in case of failure.
-  int DomainGetInfo(virDomainInfoPtr info);
-  // returns 0 in case of success and -1 in case of failure.
-  int DomainGetState(int *state, int *reason, unsigned int flags);
-
-  bool DomainLookupByID(int id);
-  bool DomainLookupByName(const char *name);
-  bool DomainLookupByUUID(const unsigned char *uuid);
-  bool DomainLookupByUUIDString(const char *uuid);
-
-  virDomainPtr DomainDefineXML(const char *xml);
-  int DomainCreate(const char *xml);
-
-  int DomainInterfaceAddress();
-
-  int DomainSetUserPassword(const char *user, const char *password);
-  /**
-   * @brief Suspends an active domain, the process is frozen without further access to CPU resources and I/O but the memory used by the domain
-   * at the hypervisor level will stay allocated. Use virDomainResume() to reactivate the domain. This function may require privileged access.
-   * Moreover, suspend may not be supported if domain is in some special state like VIR_DOMAIN_PMSUSPENDED.
-   * @param domain   a domain object
-   *
-   * @return 0 in case of success and -1 in case of failure.
-   *     -<em>-1</em> fail
-   *     -<em>0</em> succeed
-   */
-  int DomainSuspend();
-  /**
-   * @brief Resume a suspended domain, the process is restarted from the state where it was frozen by calling virDomainSuspend().
-   * This function may require privileged access Moreover, resume may not be supported if domain is in some special state like VIR_DOMAIN_PMSUSPENDED.
-   * @param domain   a domain object
-   *
-   * @return 0 in case of success and -1 in case of failure.
-   *     -<em>-1</em> fail
-   *     -<em>0</em> succeed
-   */
-  int DomainResume();
-
-public:
-  virConnectPtr GetConnectPtr() { return connectPtr_; }
-  virDomainPtr GetDomainPtr() { return domainPtr_; }
+  std::shared_ptr<virDomainImpl> createDomain(const char *xml_content);
 
 protected:
+  std::shared_ptr<virDomainImpl> defineDomain(const char *xml_content);
   void DefaultThreadFunc();
 
-private:
-  virConnectPtr connectPtr_;
-  virDomainPtr domainPtr_;
-  virToolDelegate *delegate_;
+protected:
+  std::shared_ptr<virConnect> conn_;
+  bool enable_event_;
   int callback_id_;
   int thread_quit_;
   std::thread *thread_event_loop_;
