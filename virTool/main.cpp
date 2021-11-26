@@ -3,37 +3,44 @@
 #include "virtDev.h"
 
 void parseCommand(int argc, char *argv[]) {
-  std::string op, domName;
+  std::string op, param;
   if (argc < 2) {
     std::cout << "format: virTool operation [domain name]" << std::endl;
     return;
   }
   op = argv[1];
-  if (argc > 2) domName = argv[2];
+  if (argc > 2) param = argv[2];
   if (op == "ver" || op == "version")
     virTool::parseVersion();
   else if (op == "list")
     virTool::parseList();
   else if (op == "create") {
-    if (domName.empty()) {
+    if (param.empty()) {
       std::cout << "format: virTool operation [xml path]" << std::endl;
       return;
     }
-    virTool::parseCreateDomain(domName.c_str());
+    virTool::parseCreateDomain(param.c_str());
+  }
+  else if (op == "detail") {
+    if (param.empty()) {
+      std::cout << "format: virTool operation [domain name]" << std::endl;
+      return;
+    }
+    virTool::parseDetailDomain(param.c_str());
   }
   else if (op == "suspend") {
-    if (domName.empty()) {
+    if (param.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
       return;
     }
-    virTool::parseSuspendDomain(domName.c_str());
+    virTool::parseSuspendDomain(param.c_str());
   }
   else if (op == "resume") {
-    if (domName.empty()) {
+    if (param.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
       return;
     }
-    virTool::parseResumeDomain(domName.c_str());
+    virTool::parseResumeDomain(param.c_str());
   }
   else
     std::cout << "unknown operation" << std::endl;

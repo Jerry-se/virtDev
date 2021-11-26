@@ -142,16 +142,39 @@ namespace virTool {
       return;
     }
     int32_t try_count = 0;
-    while (try_count ++ < 10) {
-      domain->getDomainInterfaceAddress();
+    while (try_count ++ < 100) {
+      std::cout << "get vm local ip try_count: " << try_count << std::endl;
+      if (domain->getDomainInterfaceAddress() < 0)
+        PrintLastError();
+      else
+        break;
       sleep(3);
     }
     try_count = 0;
-    while (try_count++ < 10) {
+    while (try_count++ < 100) {
+      std::cout << "set vm user password try_count: " << try_count << std::endl;
       if (domain->setDomainUserPassword("dbc", "vm123456") == 0)
         break;
+      sleep(3);
     }
     std::cout << "create domain success" << std::endl;
+    domain.reset();
+  }
+
+  void parseDetailDomain(const char* domainName) {
+    virTool virTool_;
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      int ret = domain->getDomainFSInfo();
+      std::cout << "detail domain " << (ret < 0 ? "failed" : "ok") << std::endl;
+    }
+    else
+      std::cout << "can not find domain: " << domainName << std::endl;
     domain.reset();
   }
 
@@ -165,7 +188,7 @@ namespace virTool {
     auto domain = virTool_.openDomainByName(domainName);
     if (domain) {
       int ret = domain->suspendDomain();
-      std::cout << "suspend domain " << (ret == 0 ? "ok" : "failed") << std::endl;
+      std::cout << "suspend domain " << (ret < 0 ? "failed" : "ok") << std::endl;
     }
     else
       std::cout << "can not find domain: " << domainName << std::endl;
@@ -182,7 +205,7 @@ namespace virTool {
     auto domain = virTool_.openDomainByName(domainName);
     if (domain) {
       int ret = domain->resumeDomain();
-      std::cout << "resume domain " << (ret == 0 ? "ok" : "failed") << std::endl;
+      std::cout << "resume domain " << (ret < 0 ? "failed" : "ok") << std::endl;
     }
     else
       std::cout << "can not find domain: " << domainName << std::endl;

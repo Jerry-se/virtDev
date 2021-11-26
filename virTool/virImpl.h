@@ -60,6 +60,15 @@ public:
   // returns 0 in case of success and -1 in case of failure.
   int getDomainState(int *state, int *reason, unsigned int flags);
 
+  // Extract information about a domain's block device.
+  int getDomainBlockInfo();
+
+  // Get a list of mapping information for each mounted file systems within the specified guest and the disks.
+  int getDomainFSInfo();
+
+  // Queries the guest agent for the various information about the guest system. The reported data depends on the guest agent implementation.
+  int getDomainGuestInfo();
+
   int getDomainInterfaceAddress();
 
   int setDomainUserPassword(const char *user, const char *password);
@@ -140,6 +149,7 @@ protected:
   std::shared_ptr<virConnect> conn_;
   bool enable_event_;
   int callback_id_;
+  int agent_callback_id_;
   int thread_quit_;
   std::thread *thread_event_loop_;
 };

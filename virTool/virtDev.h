@@ -5,6 +5,7 @@ namespace virTool {
   void parseVersion();
   void parseList();
   void parseCreateDomain(const char* xml_file);
+  void parseDetailDomain(const char* domainName);
   void parseSuspendDomain(const char* domainName);
   void parseResumeDomain(const char* domainName);
 }

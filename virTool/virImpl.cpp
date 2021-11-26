@@ -29,11 +29,15 @@ struct virDomainDeleter {
 namespace virTool {
 
 // enum virDomainState
-static const char* arrayState[] = {"no state", "running", "blocked", "paused", "shutdown", "shutoff", "crashed", "pmsuspended", "last"};
+static const char* arrayDomainState[] = {"no state", "running", "blocked", "paused", "shutdown", "shutoff", "crashed", "pmsuspended", "last"};
 // enum virDomainEventType
 static const char* arrayEventType[] = {"VIR_DOMAIN_EVENT_DEFINED", "VIR_DOMAIN_EVENT_UNDEFINED", "VIR_DOMAIN_EVENT_STARTED",
   "VIR_DOMAIN_EVENT_SUSPENDED", "VIR_DOMAIN_EVENT_RESUMED", "VIR_DOMAIN_EVENT_STOPPED",
   "VIR_DOMAIN_EVENT_SHUTDOWN", "VIR_DOMAIN_EVENT_PMSUSPENDED", "VIR_DOMAIN_EVENT_CRASHED"};
+// enum event agent state
+static const char* arrayEventAgentState[] = {"no state", "agent connected", "agent disconnected", "last"};
+// enum event agent lifecycle reason
+static const char* arrayEventAgentReason[] = {"unknown state change reason", "state changed due to domain start", "channel state changed", "last"};
 
 int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail, void *opaque) {
   printf("event lifecycle cb called, event=%d, detail=%d\n", event, detail);
@@ -43,10 +47,25 @@ int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail,
     if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
       domain_state = 0;
     }
-    printf("domain %s %s, state %s\n", name, arrayEventType[event], arrayState[domain_state]);
+    printf("domain %s %s, state %s\n", name, arrayEventType[event], arrayDomainState[domain_state]);
   }
   else {
-    printf("unknowned event\n");
+    printf("unknowned event lifecycle\n");
+  }
+}
+
+void domain_event_agent_cb(virConnectPtr conn, virDomainPtr dom, int state, int reason, void *opaque) {
+  printf("event agent lifecycle cb called, state=%d, reason=%d\n", state, reason);
+  if (state >= 0 && state <= virConnectDomainEventAgentLifecycleState::VIR_CONNECT_DOMAIN_EVENT_AGENT_LIFECYCLE_STATE_DISCONNECTED) {
+    const char* name = virDomainGetName(dom);
+    int domain_state = 0;
+    if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
+      domain_state = 0;
+    }
+    printf("event agent state: %s, reason: %s, domain state: %s\n", arrayEventAgentState[state], arrayEventAgentReason[reason], arrayDomainState[domain_state]);
+  }
+  else {
+    printf("unknowned event agent state\n");
   }
 }
 
@@ -116,6 +135,71 @@ int virDomainImpl::getDomainState(int *state, int *reason, unsigned int flags) {
   return virDomainGetState(domain_.get(), state, reason, flags);
 }
 
+int virDomainImpl::getDomainBlockInfo() {
+  if (!domain_) return -1;
+  virDomainBlockInfo info;
+  char *device;
+  int ret = virDomainGetBlockInfo(domain_.get(), device, &info, 0);
+  if (ret < 0) return ret;
+  if (info.allocation == info.physical) {
+    // If the domain is no longer active,
+    // then the defaults are being returned.
+    if (!virDomainIsActive(domain_.get())) {
+      printf("domain is not active, block info is default\n");
+      return ret;
+    }
+  }
+  // Do something with the allocation and physical values
+  printf("device:%s, block capacity:%llu, allocation:%llu, physical:%llu\n", device, info.capacity, info.allocation, info.physical);
+  return ret;
+}
+
+int virDomainImpl::getDomainFSInfo() {
+  if (!domain_) return -1;
+  virDomainFSInfoPtr *fsInfos = nullptr;
+  int fsInfos_count = virDomainGetFSInfo(domain_.get(), &fsInfos, 0);
+  if (fsInfos_count < 0)
+    goto cleanup;
+  for (int i = 0; i < fsInfos_count; i++) {
+    printf("device name:%s, mountpoint:%s, fstype:%s", fsInfos[i]->name, fsInfos[i]->mountpoint, fsInfos[i]->fstype);
+    for (int j = 0; j < fsInfos[i]->ndevAlias; j++) {
+      printf(", devAlias%d:%s", j, fsInfos[i]->devAlias[j]);
+    }
+    printf("\n");
+  }
+cleanup:
+  if (fsInfos && fsInfos_count > 0) {
+    for (int i = 0; i < fsInfos_count; i++) {
+      virDomainFSInfoFree(fsInfos[i]);
+    }
+  }
+  free(fsInfos);
+  return fsInfos_count;
+}
+
+int virDomainImpl::getDomainGuestInfo() {
+  if (!domain_) return -1;
+  virTypedParameterPtr *params = nullptr;
+  int nparams = 0;
+  // https://libvirt.org/news.html
+  // v5.7.0 (2019-09-03) add virDomainGetGuestInfo method
+//   int ret = virDomainGetGuestInfo(domain_.get(), VIR_DOMAIN_GUEST_INFO_DISKS, &params, &nparams, 0);
+//   if (ret < 0)
+//     goto cleanup;
+//   for (int i = 0; i < nparams; i++) {
+//     // TODO
+//     printf("\n");
+//   }
+// cleanup:
+//   if (params && nparams > 0) {
+//     for (int i = 0; i < nparams; i++) {
+//       virTypedParamsFree(params[i]);
+//     }
+//   }
+//   free(params);
+  return 0;
+}
+
 int virDomainImpl::getDomainInterfaceAddress() {
   if (!domain_) return -1;
   virDomainInterfacePtr *ifaces = nullptr;
@@ -160,6 +244,7 @@ virTool::virTool(bool enableEvent)
   : conn_(nullptr)
   , enable_event_(enableEvent)
   , callback_id_(-1)
+  , agent_callback_id_(-1)
   , thread_quit_(1)
   , thread_event_loop_(nullptr) {
   if (enableEvent) {
@@ -177,8 +262,10 @@ virTool::~virTool() {
       thread_event_loop_->join();
     delete thread_event_loop_;
   }
-  if (conn_ && enable_event_)
+  if (conn_ && enable_event_) {
     virConnectDomainEventDeregisterAny(conn_.get(), callback_id_);
+    virConnectDomainEventDeregisterAny(conn_.get(), agent_callback_id_);
+  }
 }
 
 int virTool::getVersion(unsigned long *libVer, const char *type, unsigned long *typeVer) {
@@ -205,6 +292,8 @@ bool virTool::openConnect(const char *name) {
   if (connectPtr && enable_event_) {
     callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
       virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_cb), NULL, NULL);
+    agent_callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
+      virDomainEventID::VIR_DOMAIN_EVENT_ID_AGENT_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_agent_cb), NULL, NULL);
     thread_quit_ = 0;
     thread_event_loop_ = new std::thread(&virTool::DefaultThreadFunc, this);
   }
