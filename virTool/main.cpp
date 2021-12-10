@@ -28,6 +28,13 @@ void parseCommand(int argc, char *argv[]) {
     }
     virTool::parseDetailDomain(param.c_str());
   }
+  else if (op == "domblklist") {
+    if (param.empty()) {
+      std::cout << "format: virTool operation [domain name]" << std::endl;
+      return;
+    }
+    virTool::parseBlklistDomain(param.c_str());
+  }
   else if (op == "suspend") {
     if (param.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;

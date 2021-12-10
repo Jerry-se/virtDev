@@ -178,6 +178,26 @@ namespace virTool {
     domain.reset();
   }
 
+  void parseBlklistDomain(const char* domainName) {
+    virTool virTool_;
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      // int ret = domain->getDomainBlockInfo("hda");
+      // int ret = domain->getDomainBlockParameters();
+      // int ret = domain->getDomainBlockIoTune("hda");
+      int ret = domain->getDomainStatsList();
+      std::cout << "list domain block " << (ret < 0 ? "failed" : "ok") << std::endl;
+    }
+    else
+      std::cout << "can not find domain: " << domainName << std::endl;
+    domain.reset();
+  }
+
   void parseSuspendDomain(const char* domainName) {
     virTool virTool_;
     if (!virTool_.openConnect(virUri)) {
