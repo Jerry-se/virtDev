@@ -6,6 +6,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <iomanip>
 
 #include "virImpl.h"
 
@@ -190,8 +191,23 @@ namespace virTool {
       // int ret = domain->getDomainBlockInfo("hda");
       // int ret = domain->getDomainBlockParameters();
       // int ret = domain->getDomainBlockIoTune("hda");
-      int ret = domain->getDomainStatsList();
-      std::cout << "list domain block " << (ret < 0 ? "failed" : "ok") << std::endl;
+      // int ret = domain->getDomainStatsList();
+      std::vector<domainDiskInfo> disks;
+      if (domain->getDomainDisks(disks) < 0) {
+        PrintLastError();
+        std::cout << "list domain block failed" << std::endl;
+      } else {
+        std::cout << " ";
+        std::cout << std::setw(8) << std::setfill(' ') << std::left << "Name";
+        std::cout << std::setw(12) << std::setfill(' ') << std::left << "DriverName";
+        std::cout << std::setw(12) << std::setfill(' ') << std::left << "DriverType";
+        std::cout << std::setw(50) << std::setfill(' ') << std::left << "description";
+        std::cout << std::endl;
+        std::cout << std::setw(1 + 8 + 12 + 12 + 50) << std::setfill('-') << std::left << "" << std::endl;
+        for (const auto& disk : disks) {
+          std::cout << disk << std::endl;
+        }
+      }
     }
     else
       std::cout << "can not find domain: " << domainName << std::endl;

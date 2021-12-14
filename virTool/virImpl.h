@@ -16,24 +16,34 @@ public:
   virtual void PrintErrorMessage(virError *err) = 0;
 };
 
-struct DomainSnapshotDiskInfo {
+struct domainDiskInfo {
+  std::string driverName;
+  std::string driverType;
+  std::string sourceFile;
+  std::string targetDev;
+  std::string targetBus;
+};
+
+std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj);
+
+struct domainSnapshotDiskInfo {
   std::string name;
   std::string snapshot;
   std::string driver_type;
   std::string source_file;
 };
 
-struct DomainSnapshotInfo {
+struct domainSnapshotInfo {
   std::string name;
   std::string description;
   std::string state;
   int64_t     creationTime;
-  std::vector<DomainSnapshotDiskInfo> disks;
+  std::vector<domainSnapshotDiskInfo> disks;
 };
 
-std::ostream& operator<<(std::ostream& out, const DomainSnapshotInfo& obj);
+std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj);
 
-int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, DomainSnapshotInfo &info);
+int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &info);
 
 class virDomainSnapshotImpl {
 public:
@@ -89,7 +99,7 @@ public:
 
   int getSnapshotChildenNums();
 
-  int32_t getSnapshotInfo(DomainSnapshotInfo &info);
+  int32_t getSnapshotInfo(domainSnapshotInfo &info);
 
 protected:
   std::shared_ptr<virDomainSnapshot> snapshot_;
@@ -185,7 +195,7 @@ public:
   // Queries the guest agent for the various information about the guest system. The reported data depends on the guest agent implementation.
   int getDomainGuestInfo();
 
-  int32_t getDomainDisks(std::vector<std::string> &disks);
+  int32_t getDomainDisks(std::vector<domainDiskInfo> &disks);
 
   int getDomainInterfaceAddress();
 
@@ -270,19 +280,39 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int32_t listAllSnapshots();
+  int32_t listAllSnapshots(std::vector<std::shared_ptr<virDomainSnapshotImpl>> &snapshots, unsigned int flags);
 
-  // 参数nums使用getSnapshotNums()获取
   /**
-   * @brief 收集给定域的域快照列表，并将其名称存储在nums. 使用的值nums可以由getSnapshotNums ()确定.
-   * libvirt不鼓励使用此函数，而是使用listAllSnapshots() 。
-   * @param nums
+   * @brief 收集给定域的域快照列表，并将其名称存储在names. 使用的值nameslen可以由getSnapshotNums () 和flags 确定.
+   * 如果flags包含VIR_DOMAIN_SNAPSHOT_LIST_TOPOLOGICAL，并且没有其他连接正在修改快照，则可以保证对于结果列表中的任何快照，
+   * 从该较早快照开始的virDomainSnapshotGetParent ()序列无法到达列表中较晚的快照；否则，未指定结果列表中快照的顺序。
+   *
+   * 默认情况下，此命令涵盖所有快照。当flags包含VIR_DOMAIN_SNAPSHOT_LIST_ROOTS时，也可以将事情限制为没有父项的快照。
+   * 其他过滤器通过与virDomainListAllSnapshots () 中flags记录的值相同的值提供。
+   *
+   * 请注意，此命令本质上是活泼的：另一个连接可以在对virDomainSnapshotNum () 的调用和此调用之间定义新的快照。
+   * 如果返回值小于nameslen ，则只能保证列出所有当前定义的快照。同样，如果另一个连接在此期间删除了快照，
+   * 那么您应该准备好virDomainSnapshotLookupByName () 在将名称从此调用转换为快照对象时失败。
+   *
+   * 不鼓励使用此函数，而是使用listAllSnapshots() 。
+   * @param names       用于收集快照名称列表的数组
+   * @param nameslen    names的大小
+   * @param flags       支持的virDomainSnapshotListFlags 的按位或
    *
    * @return 找到的域快照数量或 -1 以防出错。调用者负责为数组的每个成员调用 free().
    */
-  int32_t listSnapshotNames(int nums);
+  int32_t listSnapshotNames(std::vector<std::string> &names, int nameslen, unsigned int flags);
 
-  int32_t getSnapshotNums();
+  /**
+   * @brief 提供此域的快照数 。
+   * 此功能将接受VIR_DOMAIN_SNAPSHOT_LIST_TOPOLOGICAL在flags只有virDomainSnapshotListNames（）能够履行它，虽然标志在这里有没有其他作用。
+   * 默认情况下，此命令涵盖所有快照。当flags包含VIR_DOMAIN_SNAPSHOT_LIST_ROOTS时，也可以将事情限制为没有父项的快照。
+   * 其他过滤器通过与virDomainListAllSnapshots () 中flags记录的值相同的值提供。
+   * @param flags    支持的virDomainSnapshotListFlags 的按位或
+   *
+   * @return 找到的域快照数量或 -1 以防出错。
+   */
+  int32_t getSnapshotNums(unsigned int flags);
 
 protected:
   std::shared_ptr<virDomain> domain_;

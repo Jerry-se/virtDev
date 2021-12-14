@@ -139,7 +139,16 @@ static inline void PrintTypedParameter(virTypedParameterPtr params, int nparams)
 
 /////////////////////////////////////////////////////////////////////////////////
 
-std::ostream& operator<<(std::ostream& out, const DomainSnapshotInfo& obj) {
+std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj) {
+  std::cout << " ";
+  std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.targetDev;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverName;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverType;
+  std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.sourceFile;
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
   if (!obj.name.empty()) {
     std::cout << " ";
     std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.name;
@@ -180,7 +189,7 @@ std::ostream& operator<<(std::ostream& out, const DomainSnapshotInfo& obj) {
   return out;
 }
 
-int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, DomainSnapshotInfo &info) {
+int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &info) {
   int ret = -1;
   if (snapshot == nullptr) return ret;
   info.name = virDomainSnapshotGetName(snapshot);
@@ -211,7 +220,7 @@ int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, DomainSnapshotInfo &inf
       if (disks) {
         tinyxml2::XMLElement *disk = disks->FirstChildElement("disk");
         while (disk) {
-          DomainSnapshotDiskInfo dsinfo;
+          domainSnapshotDiskInfo dsinfo;
           dsinfo.name = disk->Attribute("name");
           dsinfo.snapshot = disk->Attribute("snapshot");
           tinyxml2::XMLElement *driver = disk->FirstChildElement("driver");
@@ -310,7 +319,7 @@ int virDomainSnapshotImpl::getSnapshotChildenNums() {
   return virDomainSnapshotNumChildren(snapshot_.get(), 1 << 10);
 }
 
-int32_t virDomainSnapshotImpl::getSnapshotInfo(DomainSnapshotInfo &info) {
+int32_t virDomainSnapshotImpl::getSnapshotInfo(domainSnapshotInfo &info) {
   if (!snapshot_) return -1;
   return getDomainSnapshotInfo(snapshot_.get(), info);
 }
@@ -370,7 +379,7 @@ int32_t virDomainImpl::deleteDomain() {
   virDomainInfo info;
   int ret = virDomainGetInfo(domain_.get(), &info);
   if (ret < 0) return ret;
-  std::vector<std::string> disks;
+  std::vector<domainDiskInfo> disks;
   getDomainDisks(disks);
   if (info.state == VIR_DOMAIN_RUNNING) {
     ret = destroyDomain();
@@ -379,18 +388,19 @@ int32_t virDomainImpl::deleteDomain() {
   ret = undefineDomain();
   if (ret < 0) return ret;
   for (const auto& disk_file : disks) {
-    if (access(disk_file.c_str(), F_OK) != -1) {
-      remove(disk_file.c_str());
-      printf("delete file: %s\n", disk_file.c_str());
+    if (access(disk_file.sourceFile.c_str(), F_OK) != -1) {
+      remove(disk_file.sourceFile.c_str());
+      printf("delete file: %s\n", disk_file.sourceFile.c_str());
     }
   }
   return 0;
 }
 
-int32_t virDomainImpl::getDomainDisks(std::vector<std::string> &disks) {
-  if (!domain_) return -1;
+int32_t virDomainImpl::getDomainDisks(std::vector<domainDiskInfo> &disks) {
+  int ret = -1;
+  if (!domain_) return ret;
   char* pContent = virDomainGetXMLDesc(domain_.get(), VIR_DOMAIN_XML_SECURE);
-  if (!pContent) return -1;
+  if (!pContent) return ret;
   do {
     tinyxml2::XMLDocument doc;
     tinyxml2::XMLError err = doc.Parse(pContent);
@@ -400,16 +410,29 @@ int32_t virDomainImpl::getDomainDisks(std::vector<std::string> &disks) {
     if (!devices_node) break;
     tinyxml2::XMLElement* disk_node = devices_node->FirstChildElement("disk");
     while (disk_node) {
+      domainDiskInfo ddInfo;
+      tinyxml2::XMLElement* disk_driver_node = disk_node->FirstChildElement("driver");
+      if (disk_driver_node) {
+        ddInfo.driverName = disk_driver_node->Attribute("name");
+        ddInfo.driverType = disk_driver_node->Attribute("type");
+      }
       tinyxml2::XMLElement* disk_source_node = disk_node->FirstChildElement("source");
-      std::string disk_file = disk_source_node->Attribute("file");
-      // std::cout << "disk file " << disk_file << std::endl;
-      disks.push_back(disk_file);
+      if (disk_source_node) {
+        ddInfo.sourceFile = disk_source_node->Attribute("file");
+      }
+      tinyxml2::XMLElement* disk_target_node = disk_node->FirstChildElement("target");
+      if (disk_target_node) {
+        ddInfo.targetDev = disk_target_node->Attribute("dev");
+        ddInfo.targetBus = disk_target_node->Attribute("bus");
+      }
+      disks.push_back(ddInfo);
       disk_node = disk_node->NextSiblingElement("disk");
     }
+    ret = 0;
   } while(0);
 
   free(pContent);
-  return 0;
+  return ret;
 }
 
 int virDomainImpl::getDomainInfo(virDomainInfoPtr info) {
@@ -607,11 +630,11 @@ std::shared_ptr<virDomainSnapshotImpl> virDomainImpl::getSnapshotByName(const ch
   return std::make_shared<virDomainSnapshotImpl>(snapshot);
 }
 
-int32_t virDomainImpl::listAllSnapshots() {
+int32_t virDomainImpl::listAllSnapshots(std::vector<std::shared_ptr<virDomainSnapshotImpl>> &snapshots, unsigned int flags) {
   if (!domain_) return -1;
   virDomainSnapshotPtr *snaps = nullptr;
   int snaps_count = 0;
-  if ((snaps_count = virDomainListAllSnapshots(domain_.get(), &snaps, 1 << 10)) < 0)
+  if ((snaps_count = virDomainListAllSnapshots(domain_.get(), &snaps, flags)) < 0)
     goto cleanup;
   std::cout << " ";
   std::cout << std::setw(8) << std::setfill(' ') << std::left << "Name";
@@ -623,14 +646,15 @@ int32_t virDomainImpl::listAllSnapshots() {
   // printf(" Name    Creation Time               State\n");
   // printf("----------------------------------------------------\n");
   for (int i = 0; i < snaps_count; i++) {
-    DomainSnapshotInfo dsInfo;
+    domainSnapshotInfo dsInfo;
     getDomainSnapshotInfo(snaps[i], dsInfo);
     std::cout << dsInfo << std::endl;
   }
 cleanup:
   if (snaps && snaps_count > 0) {
     for (int i = 0; i < snaps_count; i++) {
-      virDomainSnapshotFree(snaps[i]);
+      // virDomainSnapshotFree(snaps[i]);
+      snapshots.push_back(std::make_shared<virDomainSnapshotImpl>(snaps[i]));
     }
   }
   if (snaps)
@@ -638,31 +662,31 @@ cleanup:
   return snaps_count;
 }
 
-int32_t virDomainImpl::listSnapshotNames(int nums) {
-  if (!domain_) return -1;
-  char * ns = NULL;
+int32_t virDomainImpl::listSnapshotNames(std::vector<std::string> &names, int nameslen, unsigned int flags) {
+  if (!domain_ && nameslen < 1) return -1;
+  char **ns = (char**)malloc(sizeof(char*) * nameslen);
   int nlen = 0;
   // libvirt官网不鼓励使用此API，而是推荐使用virDomainListAllSnapshots ()。
-  if ((nlen = virDomainSnapshotListNames(domain_.get(), &ns, nums, 1 << 10)) < 0)
+  if ((nlen = virDomainSnapshotListNames(domain_.get(), ns, nameslen, flags)) < 0)
     goto cleanup;
-  printf("domain snapshot names count: %d, names: %s\n", nlen, ns);
   // for (int i = 0; i < nlen; i++) {
   //   printf("domain snapshot names[%d]: %s\n", i, ns[i]);
   // }
 cleanup:
-  // if (ns && nlen > 0) {
-  //   for (int i = 0; i < nlen; i++) {
-  //     free(ns[i]);
-  //   }
-  // }
+  if (ns && nlen > 0) {
+    for (int i = 0; i < nlen; i++) {
+      names.push_back(ns[i]);
+      free(ns[i]);
+    }
+  }
   if (ns)
     free(ns);
   return nlen;
 }
 
-int32_t virDomainImpl::getSnapshotNums() {
+int32_t virDomainImpl::getSnapshotNums(unsigned int flags) {
   if (!domain_) return -1;
-  return virDomainSnapshotNum(domain_.get(), 1 << 10);
+  return virDomainSnapshotNum(domain_.get(), flags);
 }
 
 /////////////////////////////////////////////////////////////////////////////////
