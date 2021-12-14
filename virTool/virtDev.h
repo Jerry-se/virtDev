@@ -9,6 +9,8 @@ namespace virTool {
   void parseBlklistDomain(const char* domainName);
   void parseSuspendDomain(const char* domainName);
   void parseResumeDomain(const char* domainName);
+  // snapshot
+  void parseDomainSnapshotList(const char* domainName);
 }
 
 #endif // _VIRDEV_VIRT_DEV_H_

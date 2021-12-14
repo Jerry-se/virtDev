@@ -47,6 +47,70 @@ namespace virTool {
     }
   };
 
+/////////////////////////////////////////////////////////////////////////////////
+
+std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj) {
+  std::cout << " ";
+  std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.targetDev;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverName;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverType;
+  std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.sourceFile;
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
+  if (!obj.name.empty()) {
+    std::cout << " ";
+    std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.name;
+    // boost::posix_time::ptime ctime = boost::posix_time::from_time_t(obj.creationTime);
+    // // std::cout << std::setw(28) << std::setfill(' ') << std::left << boost::posix_time::to_simple_string(ctime);
+    // // 时间格式 2021-11-30 11:03:55 +0800
+    // boost::posix_time::ptime  now = boost::posix_time::second_clock::local_time();
+    // boost::posix_time::ptime  utc = boost::posix_time::second_clock::universal_time();
+    // boost::posix_time::time_duration tz_offset = (now - utc);
+
+    // std::stringstream   ss;
+    // boost::local_time::local_time_facet* output_facet = new boost::local_time::local_time_facet();
+    // ss.imbue(std::locale(std::locale::classic(), output_facet));
+
+    // output_facet->format("%H:%M:%S");
+    // ss.str("");
+    // ss << tz_offset;
+
+    // boost::local_time::time_zone_ptr    zone(new boost::local_time::posix_time_zone(ss.str().c_str()));
+    // boost::local_time::local_date_time  ldt(ctime, zone);
+    // output_facet->format("%Y-%m-%d %H:%M:%S %Q");
+    // ss.str("");
+    // ss << ldt;
+    // std::cout << std::setw(28) << std::setfill(' ') << std::left << ss.str();
+    // delete output_facet;
+    // C语言方法
+    // struct tm _tm{};
+    // localtime_r(&obj.creationTime, &_tm);
+    // char buf[256] = {0};
+    // strftime(buf, sizeof(char) * 256, "%Y-%m-%d %H:%M:%S %z", &_tm);
+    // std::cout << std::setw(28) << std::setfill(' ') << std::left << buf;
+    std::stringstream   ss;
+    ss.str("");
+    ss << std::put_time(std::localtime(&obj.creationTime), "%Y-%m-%d %H:%M:%S %z");
+    std::cout << std::setw(28) << std::setfill(' ') << std::left << ss.str();
+    std::cout << std::setw(16) << std::setfill(' ') << std::left << obj.state;
+    std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.description;
+    #if 0
+    std::cout << std::endl;
+    for (int i = 0; i < obj.disks.size(); i++) {
+      std::cout << " disk name=" << obj.disks[i].name << ", snapshot=" << obj.disks[i].snapshot
+                << ", driver_type=" << obj.disks[i].driver_type << ", source_file=" << obj.disks[i].source_file;
+      if (i != obj.disks.size() - 1)
+        std::cout << std::endl;
+    }
+    #endif
+  }
+  return out;
+}
+
+/////////////////////////////////////////////////////////////////////////////////
+
   void parseVersion() {
     virTool virTool_;
     if (!virTool_.openConnect(virUri)) {
@@ -120,8 +184,7 @@ namespace virTool {
         xml_content.resize(length);
         ifs.read(&xml_content[0], length);
         ifs.close();
-      }
-      else {
+      } else {
         std::cout << "open xml file failed" << std::endl;
         return;
       }
@@ -173,9 +236,9 @@ namespace virTool {
     if (domain) {
       int ret = domain->getDomainFSInfo();
       std::cout << "detail domain " << (ret < 0 ? "failed" : "ok") << std::endl;
-    }
-    else
+    } else {
       std::cout << "can not find domain: " << domainName << std::endl;
+    }
     domain.reset();
   }
 
@@ -208,9 +271,9 @@ namespace virTool {
           std::cout << disk << std::endl;
         }
       }
-    }
-    else
+    } else {
       std::cout << "can not find domain: " << domainName << std::endl;
+    }
     domain.reset();
   }
 
@@ -225,9 +288,9 @@ namespace virTool {
     if (domain) {
       int ret = domain->suspendDomain();
       std::cout << "suspend domain " << (ret < 0 ? "failed" : "ok") << std::endl;
-    }
-    else
+    } else {
       std::cout << "can not find domain: " << domainName << std::endl;
+    }
     domain.reset();
   }
 
@@ -242,9 +305,53 @@ namespace virTool {
     if (domain) {
       int ret = domain->resumeDomain();
       std::cout << "resume domain " << (ret < 0 ? "failed" : "ok") << std::endl;
-    }
-    else
+    } else {
       std::cout << "can not find domain: " << domainName << std::endl;
+    }
+    domain.reset();
+  }
+
+  void parseDomainSnapshotList(const char* domainName) {
+    virTool virTool_;
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      std::vector<std::shared_ptr<virDomainSnapshotImpl>> snaps;
+      if (domain->listAllSnapshots(snaps, 1 << 10) < 0) {
+        PrintLastError();
+        std::cout << "list all snapshots failed" << std::endl;
+      } else {
+        std::cout << " ";
+        std::cout << std::setw(8) << std::setfill(' ') << std::left << "Name";
+        std::cout << std::setw(28) << std::setfill(' ') << std::left << "Creation Time";
+        std::cout << std::setw(16) << std::setfill(' ') << std::left << "State";
+        std::cout << std::setw(50) << std::setfill(' ') << std::left << "description";
+        std::cout << std::endl;
+        std::cout << std::setw(1 + 8 + 28 + 16 + 50) << std::setfill('-') << std::left << "" << std::endl;
+        std::vector<domainSnapshotInfo> dsInfos;
+        for (const auto& snap : snaps) {
+          domainSnapshotInfo dsInfo;
+          if (snap->getSnapshotInfo(dsInfo) == 0 && !dsInfo.name.empty()) {
+            std::cout << dsInfo << std::endl;
+            dsInfos.push_back(dsInfo);
+          } else {
+            std::cout << "get domain snapshot info failed" << std::endl;
+          }
+        }
+        for (const auto& dsInfo : dsInfos) {
+          std::cout << "get snap [" << dsInfo.name << "] disk details here:" << std::endl;
+          for (int i = 0; i < dsInfo.disks.size(); i++) {
+            std::cout << "disk name=" << dsInfo.disks[i].name << ", snapshot=" << dsInfo.disks[i].snapshot
+                      << ", driver_type=" << dsInfo.disks[i].driver_type << ", source_file=" << dsInfo.disks[i].source_file;
+            std::cout << std::endl;
+          }
+        }
+      }
+    }
     domain.reset();
   }
 }

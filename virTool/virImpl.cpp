@@ -3,8 +3,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
-#include <iostream>
-#include <iomanip>
 #include <tinyxml2.h>
 
 #define __DEBUG__ 1
@@ -73,8 +71,7 @@ int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail,
       domain_state = 0;
     }
     printf("domain %s %s, state %s\n", name, arrayEventType[event], arrayDomainState[domain_state]);
-  }
-  else {
+  } else {
     printf("unknowned event lifecycle\n");
   }
 }
@@ -88,8 +85,7 @@ void domain_event_agent_cb(virConnectPtr conn, virDomainPtr dom, int state, int 
       domain_state = 0;
     }
     printf("event agent state: %s, reason: %s, domain state: %s\n", arrayEventAgentState[state], arrayEventAgentReason[reason], arrayDomainState[domain_state]);
-  }
-  else {
+  } else {
     printf("unknowned event agent state\n");
   }
 }
@@ -139,56 +135,6 @@ static inline void PrintTypedParameter(virTypedParameterPtr params, int nparams)
 
 /////////////////////////////////////////////////////////////////////////////////
 
-std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj) {
-  std::cout << " ";
-  std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.targetDev;
-  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverName;
-  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverType;
-  std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.sourceFile;
-  return out;
-}
-
-std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
-  if (!obj.name.empty()) {
-    std::cout << " ";
-    std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.name;
-    // boost::posix_time::ptime ctime = boost::posix_time::from_time_t(obj.creationTime);
-    // // std::cout << std::setw(28) << std::setfill(' ') << std::left << boost::posix_time::to_simple_string(ctime);
-    // // 时间格式 2021-11-30 11:03:55 +0800
-    // boost::posix_time::ptime  now = boost::posix_time::second_clock::local_time();
-    // boost::posix_time::ptime  utc = boost::posix_time::second_clock::universal_time();
-    // boost::posix_time::time_duration tz_offset = (now - utc);
-
-    // std::stringstream   ss;
-    // boost::local_time::local_time_facet* output_facet = new boost::local_time::local_time_facet();
-    // ss.imbue(std::locale(std::locale::classic(), output_facet));
-
-    // output_facet->format("%H:%M:%S");
-    // ss.str("");
-    // ss << tz_offset;
-
-    // boost::local_time::time_zone_ptr    zone(new boost::local_time::posix_time_zone(ss.str().c_str()));
-    // boost::local_time::local_date_time  ldt(ctime, zone);
-    // output_facet->format("%Y-%m-%d %H:%M:%S %Q");
-    // ss.str("");
-    // ss << ldt;
-    // std::cout << std::setw(28) << std::setfill(' ') << std::left << ss.str();
-    // delete output_facet;
-    std::cout << std::setw(16) << std::setfill(' ') << std::left << obj.state;
-    std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.description;
-    #if 1
-    std::cout << std::endl;
-    for (int i = 0; i < obj.disks.size(); i++) {
-      std::cout << " disk name=" << obj.disks[i].name << ", snapshot=" << obj.disks[i].snapshot
-                << ", driver_type=" << obj.disks[i].driver_type << ", source_file=" << obj.disks[i].source_file;
-      if (i != obj.disks.size() - 1)
-        std::cout << std::endl;
-    }
-    #endif
-  }
-  return out;
-}
-
 int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &info) {
   int ret = -1;
   if (snapshot == nullptr) return ret;
@@ -200,7 +146,7 @@ int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &inf
       tinyxml2::XMLDocument doc;
       tinyxml2::XMLError err = doc.Parse(xmlDesc);
       if (err != tinyxml2::XML_SUCCESS) {
-        std::cout << "parse domain snapshot xml desc error: " << err << std::endl;
+        printf("parse domain snapshot xml desc error: %d\n", err);
         break;
       }
       tinyxml2::XMLElement *root = doc.RootElement();
@@ -636,20 +582,13 @@ int32_t virDomainImpl::listAllSnapshots(std::vector<std::shared_ptr<virDomainSna
   int snaps_count = 0;
   if ((snaps_count = virDomainListAllSnapshots(domain_.get(), &snaps, flags)) < 0)
     goto cleanup;
-  std::cout << " ";
-  std::cout << std::setw(8) << std::setfill(' ') << std::left << "Name";
-  std::cout << std::setw(28) << std::setfill(' ') << std::left << "Creation Time";
-  std::cout << std::setw(16) << std::setfill(' ') << std::left << "State";
-  std::cout << std::setw(50) << std::setfill(' ') << std::left << "description";
-  std::cout << std::endl;
-  std::cout << std::setw(1 + 8 + 28 + 16 + 50) << std::setfill('-') << std::left << "" << std::endl;
   // printf(" Name    Creation Time               State\n");
   // printf("----------------------------------------------------\n");
-  for (int i = 0; i < snaps_count; i++) {
-    domainSnapshotInfo dsInfo;
-    getDomainSnapshotInfo(snaps[i], dsInfo);
-    std::cout << dsInfo << std::endl;
-  }
+  // for (int i = 0; i < snaps_count; i++) {
+  //   domainSnapshotInfo dsInfo;
+  //   getDomainSnapshotInfo(snaps[i], dsInfo);
+  //   std::cout << dsInfo << std::endl;
+  // }
 cleanup:
   if (snaps && snaps_count > 0) {
     for (int i = 0; i < snaps_count; i++) {
