@@ -28,6 +28,11 @@
 //     printf("vir domain snapshot free\n");
 // }
 
+// void virErrorDeleter(virErrorPtr error) {
+//   virFreeError(error);
+//   printf("vir error free\n");
+// }
+
 struct virConnectDeleter {
   inline void operator()(virConnectPtr conn) {
     virConnectClose(conn);
@@ -49,6 +54,13 @@ struct virDomainSnapshotDeleter {
   }
 };
 
+struct virErrorDeleter {
+  inline void operator()(virErrorPtr error) {
+    virFreeError(error);
+    printf("vir error free\n");
+  }
+};
+
 namespace virTool {
 
 // enum virDomainState
@@ -61,8 +73,14 @@ static const char* arrayEventType[] = {"VIR_DOMAIN_EVENT_DEFINED", "VIR_DOMAIN_E
 static const char* arrayEventAgentState[] = {"no state", "agent connected", "agent disconnected", "last"};
 // enum event agent lifecycle reason
 static const char* arrayEventAgentReason[] = {"unknown state change reason", "state changed due to domain start", "channel state changed", "last"};
+// block job type
+static const char* arrayBlockJobType[] = {"VIR_DOMAIN_BLOCK_JOB_TYPE_UNKNOWN", "VIR_DOMAIN_BLOCK_JOB_TYPE_PULL", "VIR_DOMAIN_BLOCK_JOB_TYPE_COPY",
+  "VIR_DOMAIN_BLOCK_JOB_TYPE_COMMIT", "VIR_DOMAIN_BLOCK_JOB_TYPE_ACTIVE_COMMIT", "VIR_DOMAIN_BLOCK_JOB_TYPE_BACKUP", "VIR_DOMAIN_BLOCK_JOB_TYPE_LAST"};
+// block job status
+static const char* arrayBlockJobStatus[] = {"VIR_DOMAIN_BLOCK_JOB_COMPLETED", "VIR_DOMAIN_BLOCK_JOB_FAILED", "VIR_DOMAIN_BLOCK_JOB_CANCELED",
+  "VIR_DOMAIN_BLOCK_JOB_READY", "VIR_DOMAIN_BLOCK_JOB_LAST"};
 
-int domain_event_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail, void *opaque) {
+int domain_event_lifecycle_cb(virConnectPtr conn, virDomainPtr dom, int event, int detail, void *opaque) {
   printf("event lifecycle cb called, event=%d, detail=%d\n", event, detail);
   if (event >= 0 && event <= virDomainEventType::VIR_DOMAIN_EVENT_CRASHED) {
     const char* name = virDomainGetName(dom);
@@ -84,19 +102,29 @@ void domain_event_agent_cb(virConnectPtr conn, virDomainPtr dom, int state, int 
     if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
       domain_state = 0;
     }
-    printf("event agent state: %s, reason: %s, domain state: %s\n", arrayEventAgentState[state], arrayEventAgentReason[reason], arrayDomainState[domain_state]);
+    printf("event agent state: %s, reason: %s, domain state: %s\n",
+      arrayEventAgentState[state], arrayEventAgentReason[reason], arrayDomainState[domain_state]);
   } else {
     printf("unknowned event agent state\n");
   }
 }
 
-static inline void PrintLastError() {
-  virError *err = virGetLastError();
-  if (err) {
-    printf("vir error occured: %s\n", err->message);
-    virFreeError(err);
+void domain_event_block_job_cb(virConnectPtr conn, virDomainPtr dom, const char *disk, int type, int status, void *opaque) {
+  printf("domain event block job cb called, disk=%s, type=%d, status=%d\n", disk, type, status);
+  if (status >= 0 && status <= virConnectDomainEventBlockJobStatus::VIR_DOMAIN_BLOCK_JOB_READY) {
+    const char* name = virDomainGetName(dom);
+    int domain_state = 0;
+    if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
+      domain_state = 0;
+    }
+    printf("domain: %s, state: %s, block job type: %s, status: %s\n", disk,
+      arrayDomainState[domain_state], arrayBlockJobType[type], arrayBlockJobStatus[status]);
+  } else {
+    printf("unknowned block job state\n");
   }
 }
+
+/////////////////////////////////////////////////////////////////////////////////
 
 static inline void PrintTypedParameter(virTypedParameterPtr params, int nparams) {
   for (int i = 0; i < nparams; i++) {
@@ -134,6 +162,10 @@ static inline void PrintTypedParameter(virTypedParameterPtr params, int nparams)
 }
 
 /////////////////////////////////////////////////////////////////////////////////
+
+std::shared_ptr<virError> getLastError() {
+  return std::shared_ptr<virError>(virGetLastError(), virErrorDeleter());
+}
 
 int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &info) {
   int ret = -1;
@@ -340,6 +372,11 @@ int32_t virDomainImpl::deleteDomain() {
     }
   }
   return 0;
+}
+
+int32_t virDomainImpl::isDomainActive() {
+  if (!domain_) return -1;
+  return virDomainIsActive(domain_.get());
 }
 
 int32_t virDomainImpl::getDomainDisks(std::vector<domainDiskInfo> &disks) {
@@ -628,13 +665,34 @@ int32_t virDomainImpl::getSnapshotNums(unsigned int flags) {
   return virDomainSnapshotNum(domain_.get(), flags);
 }
 
+int32_t virDomainImpl::blockCommit(const char *disk, const char *base, const char *top, unsigned long bandwith, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainBlockCommit(domain_.get(), disk, base, top, bandwith, flags);
+}
+
+int32_t virDomainImpl::blockPull(const char *disk, unsigned long bandwith, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainBlockPull(domain_.get(), disk, bandwith, flags);
+}
+
+int32_t virDomainImpl::blockRebase(const char *disk, const char *base, unsigned long bandwith, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainBlockRebase(domain_.get(), disk, base, bandwith, flags);
+}
+
+int32_t virDomainImpl::getBlockJobInfo(const char *disk, virDomainBlockJobInfoPtr info, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainGetBlockJobInfo(domain_.get(), disk, info, flags);
+}
+
 /////////////////////////////////////////////////////////////////////////////////
 
 virTool::virTool(bool enableEvent)
   : conn_(nullptr)
   , enable_event_(enableEvent)
-  , callback_id_(-1)
-  , agent_callback_id_(-1)
+  , dom_event_lifecycle_callback_id_(-1)
+  , dom_event_agent_callback_id_(-1)
+  , dom_event_block_job_callback_id_(-1)
   , thread_quit_(1)
   , thread_event_loop_(nullptr) {
   if (enableEvent) {
@@ -653,8 +711,9 @@ virTool::~virTool() {
     delete thread_event_loop_;
   }
   if (conn_ && enable_event_) {
-    virConnectDomainEventDeregisterAny(conn_.get(), callback_id_);
-    virConnectDomainEventDeregisterAny(conn_.get(), agent_callback_id_);
+    virConnectDomainEventDeregisterAny(conn_.get(), dom_event_lifecycle_callback_id_);
+    virConnectDomainEventDeregisterAny(conn_.get(), dom_event_agent_callback_id_);
+    virConnectDomainEventDeregisterAny(conn_.get(), dom_event_block_job_callback_id_);
   }
 }
 
@@ -680,10 +739,12 @@ bool virTool::openConnect(const char *name) {
   }
   conn_.reset(connectPtr, virConnectDeleter());
   if (connectPtr && enable_event_) {
-    callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
-      virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_cb), NULL, NULL);
-    agent_callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
+    dom_event_lifecycle_callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
+      virDomainEventID::VIR_DOMAIN_EVENT_ID_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_lifecycle_cb), NULL, NULL);
+    dom_event_agent_callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
       virDomainEventID::VIR_DOMAIN_EVENT_ID_AGENT_LIFECYCLE, VIR_DOMAIN_EVENT_CALLBACK(domain_event_agent_cb), NULL, NULL);
+    dom_event_block_job_callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
+      virDomainEventID::VIR_DOMAIN_EVENT_ID_BLOCK_JOB_2, VIR_DOMAIN_EVENT_CALLBACK(domain_event_block_job_cb), NULL, NULL);
     thread_quit_ = 0;
     thread_event_loop_ = new std::thread(&virTool::DefaultThreadFunc, this);
   }
@@ -773,9 +834,8 @@ void virTool::DefaultThreadFunc() {
   printf("vir event loop thread begin\n");
   while (thread_quit_ == 0) {
     if (virEventRunDefaultImpl() < 0) {
-      virErrorPtr err = virGetLastError();
+      std::shared_ptr<virError> err = getLastError();
       printf("virEventRunDefaultImpl failed: %s\n", err ? err->message : "");
-      if (err) virFreeError(err);
     }
   }
   printf("vir event loop thread end\n");
