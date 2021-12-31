@@ -25,6 +25,7 @@
 
 ### 守护进程libvirtd
 检测执行远程指令，根据不同虚拟机技术（qemu, xen, storage…）注册驱动。
+`systemctl status libvirtd`
 
 ### 参考资料
 * [libvirt 虚拟化库剖析](https://developer.ibm.com/tutorials/l-libvirt/#basic_architecture)
