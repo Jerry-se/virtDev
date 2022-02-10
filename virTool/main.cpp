@@ -20,12 +20,18 @@ void parseCommand(int argc, char *argv[]) {
       return;
     }
     virTool::parseCreateDomain(param.c_str());
-  } else if (op == "detail") {
+  } else if (op == "domstats") {
     if (param.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
       return;
     }
-    virTool::parseDetailDomain(param.c_str());
+    virTool::parseStatsDomain(param.c_str());
+  } else if (op == "fsinfo") {
+    if (param.empty()) {
+      std::cout << "format: virTool operation [domain name]" << std::endl;
+      return;
+    }
+    virTool::parseFSInfoDomain(param.c_str());
   } else if (op == "domblklist") {
     if (param.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
@@ -44,6 +50,18 @@ void parseCommand(int argc, char *argv[]) {
       return;
     }
     virTool::parseResumeDomain(param.c_str());
+  } else if (op == "reboot") {
+    if (param.empty()) {
+      std::cout << "format: virTool operation [domain name]" << std::endl;
+      return;
+    }
+    virTool::parseRebootDomain(param.c_str());
+  } else if (op == "domiflist") {
+    if (param.empty()) {
+      std::cout << "format: virTool operation [domain name]" << std::endl;
+      return;
+    }
+    virTool::parseIflistDomain(param.c_str());
   } else if (op == "snapshot-list") {
     if (param.empty()) {
       std::cout << "format: virTool operation [domain name]" << std::endl;
