@@ -428,11 +428,11 @@ int virDomainImpl::getDomainState(int *state, int *reason, unsigned int flags) {
   return virDomainGetState(domain_.get(), state, reason, flags);
 }
 
-int virDomainImpl::getDomainStatsList() {
+int virDomainImpl::getDomainStatsList(unsigned int stats) {
   if (!domain_) return -1;
   virDomainStatsRecordPtr *retStats = NULL;
   virDomainPtr doms[] = {domain_.get(), NULL};
-  int retStats_count = virDomainListGetStats(doms, VIR_DOMAIN_STATS_BLOCK, &retStats, VIR_CONNECT_GET_ALL_DOMAINS_STATS_ENFORCE_STATS);
+  int retStats_count = virDomainListGetStats(doms, stats, &retStats, VIR_CONNECT_GET_ALL_DOMAINS_STATS_ENFORCE_STATS);
   if (retStats_count < 0)
     goto error;
   for (int i = 0; i < retStats_count; i++) {
@@ -555,14 +555,13 @@ int virDomainImpl::getDomainGuestInfo() {
   return 0;
 }
 
-int virDomainImpl::getDomainInterfaceAddress() {
+int virDomainImpl::getDomainInterfaceAddress(unsigned int source) {
   if (!domain_) return -1;
   virDomainInterfacePtr *ifaces = nullptr;
   int ifaces_count = 0;
   size_t i, j;
 
-  if ((ifaces_count = virDomainInterfaceAddresses(domain_.get(), &ifaces,
-          VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE, 0)) < 0)
+  if ((ifaces_count = virDomainInterfaceAddresses(domain_.get(), &ifaces, source, 0)) < 0)
     goto cleanup;
 
   for (i = 0; i < ifaces_count; i++) {

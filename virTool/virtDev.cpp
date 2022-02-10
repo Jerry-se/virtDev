@@ -225,7 +225,25 @@ std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
     domain.reset();
   }
 
-  void parseDetailDomain(const char* domainName) {
+  void parseStatsDomain(const char* domainName) {
+    virTool virTool_;
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      int ret = domain->getDomainStatsList(VIR_DOMAIN_STATS_STATE | VIR_DOMAIN_STATS_CPU_TOTAL | VIR_DOMAIN_STATS_BALLOON |
+        VIR_DOMAIN_STATS_VCPU | VIR_DOMAIN_STATS_INTERFACE | VIR_DOMAIN_STATS_BLOCK | VIR_DOMAIN_STATS_PERF);
+      std::cout << "stats domain " << (ret < 0 ? "failed" : "ok") << std::endl;
+    } else {
+      std::cout << "can not find domain: " << domainName << std::endl;
+    }
+    domain.reset();
+  }
+
+  void parseFSInfoDomain(const char* domainName) {
     virTool virTool_;
     if (!virTool_.openConnect(virUri)) {
       PrintLastError();
@@ -235,7 +253,7 @@ std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
     auto domain = virTool_.openDomainByName(domainName);
     if (domain) {
       int ret = domain->getDomainFSInfo();
-      std::cout << "detail domain " << (ret < 0 ? "failed" : "ok") << std::endl;
+      std::cout << "fsinfo domain " << (ret < 0 ? "failed" : "ok") << std::endl;
     } else {
       std::cout << "can not find domain: " << domainName << std::endl;
     }
@@ -305,6 +323,40 @@ std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
     if (domain) {
       int ret = domain->resumeDomain();
       std::cout << "resume domain " << (ret < 0 ? "failed" : "ok") << std::endl;
+    } else {
+      std::cout << "can not find domain: " << domainName << std::endl;
+    }
+    domain.reset();
+  }
+
+  void parseRebootDomain(const char* domainName) {
+    virTool virTool_;
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      int ret = domain->rebootDomain(VIR_DOMAIN_REBOOT_ACPI_POWER_BTN | VIR_DOMAIN_REBOOT_GUEST_AGENT);
+      std::cout << "reboot domain " << (ret < 0 ? "failed" : "ok") << std::endl;
+    } else {
+      std::cout << "can not find domain: " << domainName << std::endl;
+    }
+    domain.reset();
+  }
+
+  void parseIflistDomain(const char* domainName) {
+    virTool virTool_;
+    if (!virTool_.openConnect(virUri)) {
+      PrintLastError();
+      std::cout << "open connect failed" << std::endl;
+      return;
+    }
+    auto domain = virTool_.openDomainByName(domainName);
+    if (domain) {
+      int ret = domain->getDomainInterfaceAddress(VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT);
+      std::cout << "list domain ifconfig " << (ret < 0 ? "failed" : "ok") << std::endl;
     } else {
       std::cout << "can not find domain: " << domainName << std::endl;
     }

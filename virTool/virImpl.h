@@ -163,7 +163,7 @@ public:
   // returns 0 in case of success and -1 in case of failure.
   int getDomainState(int *state, int *reason, unsigned int flags);
 
-  int getDomainStatsList();
+  int getDomainStatsList(unsigned int stats);
 
   // Extract information about a domain's block device.
   int getDomainBlockInfo(const char *disk);
@@ -206,7 +206,7 @@ public:
 
   int32_t getDomainDisks(std::vector<domainDiskInfo> &disks);
 
-  int getDomainInterfaceAddress();
+  int getDomainInterfaceAddress(unsigned int source = VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
 
   int setDomainUserPassword(const char *user, const char *password);
 
