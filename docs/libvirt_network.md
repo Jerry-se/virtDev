@@ -107,6 +107,13 @@ ln -s /etc/machine-id /var/lib/dbus/machine-id
 - * [克隆的 VM 获取相同的 DHCP IP 地址](https://kb.vmware.com/s/article/82229)
 - * [netplan does not allow dhcp client identifier type to be specified](https://bugs.launchpad.net/netplan/+bug/1738998)
 
+# 同一个物理机上两个虚拟机无法通过公网IP传输
+因为NAT地址转换，导致tcp无法建立连接，需要加载br_netfilter内核模块来解决问题。
+```
+modprobe br_netfilter
+lsmod |grep br_netfilter
+```
+
 ### 参考资料
 * [How To Find The IP Address Of A KVM Virtual Machine](https://ostechnix.com/how-to-find-the-ip-address-of-a-kvm-virtual-machine/)
 * [How to find the IP address of a KVM Virtual Machine, that I can SSH into it?](https://unix.stackexchange.com/questions/33191/how-to-find-the-ip-address-of-a-kvm-virtual-machine-that-i-can-ssh-into-it)
