@@ -1,8 +1,10 @@
 #include "virImpl.h"
+#include <iostream>
+#include <iomanip>
 #include <stdlib.h>
 #include <stdio.h>
-#include <unistd.h>
 #include <string.h>
+#include <unistd.h>
 #include <tinyxml2.h>
 
 #define __DEBUG__ 1
@@ -163,8 +165,64 @@ static inline void PrintTypedParameter(virTypedParameterPtr params, int nparams)
 
 /////////////////////////////////////////////////////////////////////////////////
 
-std::shared_ptr<virError> getLastError() {
-  return std::shared_ptr<virError>(virGetLastError(), virErrorDeleter());
+std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj) {
+  std::cout << " ";
+  std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.targetDev;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverName;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverType;
+  std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.sourceFile;
+  return out;
+}
+
+std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
+  if (!obj.name.empty()) {
+    std::cout << " ";
+    std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.name;
+    // boost::posix_time::ptime ctime = boost::posix_time::from_time_t(obj.creationTime);
+    // // std::cout << std::setw(28) << std::setfill(' ') << std::left << boost::posix_time::to_simple_string(ctime);
+    // // 时间格式 2021-11-30 11:03:55 +0800
+    // boost::posix_time::ptime  now = boost::posix_time::second_clock::local_time();
+    // boost::posix_time::ptime  utc = boost::posix_time::second_clock::universal_time();
+    // boost::posix_time::time_duration tz_offset = (now - utc);
+
+    // std::stringstream   ss;
+    // boost::local_time::local_time_facet* output_facet = new boost::local_time::local_time_facet();
+    // ss.imbue(std::locale(std::locale::classic(), output_facet));
+
+    // output_facet->format("%H:%M:%S");
+    // ss.str("");
+    // ss << tz_offset;
+
+    // boost::local_time::time_zone_ptr    zone(new boost::local_time::posix_time_zone(ss.str().c_str()));
+    // boost::local_time::local_date_time  ldt(ctime, zone);
+    // output_facet->format("%Y-%m-%d %H:%M:%S %Q");
+    // ss.str("");
+    // ss << ldt;
+    // std::cout << std::setw(28) << std::setfill(' ') << std::left << ss.str();
+    // delete output_facet;
+    // C语言方法
+    // struct tm _tm{};
+    // localtime_r(&obj.creationTime, &_tm);
+    // char buf[256] = {0};
+    // strftime(buf, sizeof(char) * 256, "%Y-%m-%d %H:%M:%S %z", &_tm);
+    // std::cout << std::setw(28) << std::setfill(' ') << std::left << buf;
+    std::stringstream   ss;
+    ss.str("");
+    ss << std::put_time(std::localtime(&obj.creationTime), "%Y-%m-%d %H:%M:%S %z");
+    std::cout << std::setw(28) << std::setfill(' ') << std::left << ss.str();
+    std::cout << std::setw(16) << std::setfill(' ') << std::left << obj.state;
+    std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.description;
+    #if 0
+    std::cout << std::endl;
+    for (int i = 0; i < obj.disks.size(); i++) {
+      std::cout << " disk name=" << obj.disks[i].name << ", snapshot=" << obj.disks[i].snapshot
+                << ", driver_type=" << obj.disks[i].driver_type << ", source_file=" << obj.disks[i].source_file;
+      if (i != obj.disks.size() - 1)
+        std::cout << std::endl;
+    }
+    #endif
+  }
+  return out;
 }
 
 int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &info) {
@@ -218,6 +276,10 @@ int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &inf
     free(xmlDesc);
   }
   return ret;
+}
+
+std::shared_ptr<virError> getLastError() {
+  return std::shared_ptr<virError>(virGetLastError(), virErrorDeleter());
 }
 
 /////////////////////////////////////////////////////////////////////////////////
@@ -730,7 +792,7 @@ int virDomainImpl::getBlockJobInfo(const char *disk, virDomainBlockJobInfoPtr in
 
 /////////////////////////////////////////////////////////////////////////////////
 
-virTool::virTool(bool enableEvent)
+virHelper::virHelper(bool enableEvent)
   : conn_(nullptr)
   , enable_event_(enableEvent)
   , dom_event_lifecycle_callback_id_(-1)
@@ -746,7 +808,7 @@ virTool::virTool(bool enableEvent)
   }
 }
 
-virTool::~virTool() {
+virHelper::~virHelper() {
   thread_quit_ = 1;
   if (thread_event_loop_) {
     if (thread_event_loop_->joinable())
@@ -760,21 +822,21 @@ virTool::~virTool() {
   }
 }
 
-int virTool::getVersion(unsigned long *libVer, const char *type, unsigned long *typeVer) {
+int virHelper::getVersion(unsigned long *libVer, const char *type, unsigned long *typeVer) {
   return virGetVersion(libVer, type, typeVer);
 }
 
-int virTool::getConnectVersion(unsigned long *hvVer) {
+int virHelper::getConnectVersion(unsigned long *hvVer) {
   if (!conn_) return -1;
   return virConnectGetVersion(conn_.get(), hvVer);
 }
 
-int virTool::getConnectLibVersion(unsigned long *libVer) {
+int virHelper::getConnectLibVersion(unsigned long *libVer) {
   if (!conn_) return -1;
   return virConnectGetLibVersion(conn_.get(), libVer);
 }
 
-bool virTool::openConnect(const char *name) {
+bool virHelper::openConnect(const char *name) {
   // if (conn_) return true;
   virConnectPtr connectPtr = virConnectOpen(name);
   if (connectPtr == nullptr) {
@@ -789,33 +851,33 @@ bool virTool::openConnect(const char *name) {
     dom_event_block_job_callback_id_ = virConnectDomainEventRegisterAny(connectPtr, NULL,
       virDomainEventID::VIR_DOMAIN_EVENT_ID_BLOCK_JOB_2, VIR_DOMAIN_EVENT_CALLBACK(domain_event_block_job_cb), NULL, NULL);
     thread_quit_ = 0;
-    thread_event_loop_ = new std::thread(&virTool::DefaultThreadFunc, this);
+    thread_event_loop_ = new std::thread(&virHelper::DefaultThreadFunc, this);
   }
   return !!conn_;
 }
 
-bool virTool::openConnectReadOnly(const char *name) {
+bool virHelper::openConnectReadOnly(const char *name) {
   // virConnectPtr connectPtr = virConnectOpenReadOnly(name);
   // return !!connectPtr;
   return false;
 }
 
-int virTool::listAllDomains(virDomainPtr **domains, unsigned int flags) {
+int virHelper::listAllDomains(virDomainPtr **domains, unsigned int flags) {
   if (!conn_) return -1;
   return virConnectListAllDomains(conn_.get(), domains, flags);
 }
 
-int virTool::listDomains(int *ids, int maxids) {
+int virHelper::listDomains(int *ids, int maxids) {
   if (!conn_) return -1;
   return virConnectListDomains(conn_.get(), ids, maxids);
 }
 
-int virTool::numOfDomains() {
+int virHelper::numOfDomains() {
   if (!conn_) return -1;
   return virConnectNumOfDomains(conn_.get());
 }
 
-std::shared_ptr<virDomainImpl> virTool::openDomainByID(int id) {
+std::shared_ptr<virDomainImpl> virHelper::openDomainByID(int id) {
   if (!conn_) return nullptr;
   virDomainPtr domainPtr = virDomainLookupByID(conn_.get(), id);
   if (nullptr == domainPtr) {
@@ -824,7 +886,7 @@ std::shared_ptr<virDomainImpl> virTool::openDomainByID(int id) {
   return std::make_shared<virDomainImpl>(domainPtr);
 }
 
-std::shared_ptr<virDomainImpl> virTool::openDomainByName(const char *domain_name) {
+std::shared_ptr<virDomainImpl> virHelper::openDomainByName(const char *domain_name) {
   if (!conn_) return nullptr;
   virDomainPtr domainPtr = virDomainLookupByName(conn_.get(), domain_name);
   if (nullptr == domainPtr) {
@@ -833,7 +895,7 @@ std::shared_ptr<virDomainImpl> virTool::openDomainByName(const char *domain_name
   return std::make_shared<virDomainImpl>(domainPtr);
 }
 
-std::shared_ptr<virDomainImpl> virTool::openDomainByUUID(const unsigned char *uuid) {
+std::shared_ptr<virDomainImpl> virHelper::openDomainByUUID(const unsigned char *uuid) {
   if (!conn_) return nullptr;
   virDomainPtr domainPtr = virDomainLookupByUUID(conn_.get(), uuid);
   if (nullptr == domainPtr) {
@@ -842,7 +904,7 @@ std::shared_ptr<virDomainImpl> virTool::openDomainByUUID(const unsigned char *uu
   return std::make_shared<virDomainImpl>(domainPtr);
 }
 
-std::shared_ptr<virDomainImpl> virTool::openDomainByUUIDString(const char *uuid) {
+std::shared_ptr<virDomainImpl> virHelper::openDomainByUUIDString(const char *uuid) {
   if (!conn_) return nullptr;
   virDomainPtr domainPtr = virDomainLookupByUUIDString(conn_.get(), uuid);
   if (nullptr == domainPtr) {
@@ -851,7 +913,7 @@ std::shared_ptr<virDomainImpl> virTool::openDomainByUUIDString(const char *uuid)
   return std::make_shared<virDomainImpl>(domainPtr);
 }
 
-std::shared_ptr<virDomainImpl> virTool::createDomain(const char *xml_content) {
+std::shared_ptr<virDomainImpl> virHelper::createDomain(const char *xml_content) {
   if (!conn_) return nullptr;
   virDomainPtr domainPtr = virDomainDefineXML(conn_.get(), xml_content);
   if (nullptr == domainPtr) {
@@ -864,7 +926,7 @@ std::shared_ptr<virDomainImpl> virTool::createDomain(const char *xml_content) {
   return std::move(dom);
 }
 
-std::shared_ptr<virDomainImpl> virTool::defineDomain(const char *xml_content) {
+std::shared_ptr<virDomainImpl> virHelper::defineDomain(const char *xml_content) {
   if (!conn_) return nullptr;
   virDomainPtr domainPtr = virDomainDefineXML(conn_.get(), xml_content);
   if (nullptr == domainPtr) {
@@ -873,7 +935,7 @@ std::shared_ptr<virDomainImpl> virTool::defineDomain(const char *xml_content) {
   return std::make_shared<virDomainImpl>(domainPtr);
 }
 
-void virTool::DefaultThreadFunc() {
+void virHelper::DefaultThreadFunc() {
   DebugPrintf("vir event loop thread begin\n");
   while (thread_quit_ == 0) {
     if (virEventRunDefaultImpl() < 0) {

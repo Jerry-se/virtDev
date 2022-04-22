@@ -1,6 +1,6 @@
 #include <iostream>
 #include <string>
-#include "virtDev.h"
+#include "virTool.h"
 
 void parseCommand(int argc, char *argv[]) {
   std::string op, param;

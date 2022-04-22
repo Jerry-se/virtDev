@@ -1,5 +1,5 @@
-#ifndef _VIRDEV_VIR_TOOL_H_
-#define _VIRDEV_VIR_TOOL_H_
+#ifndef _VIRDEV_VIR_IMPL_H_
+#define _VIRDEV_VIR_IMPL_H_
 
 #include <memory>
 #include <string>
@@ -51,9 +51,9 @@ struct domainSnapshotInfo {
 
 std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj);
 
-std::shared_ptr<virError> getLastError();
-
 int getDomainSnapshotInfo(virDomainSnapshotPtr snapshot, domainSnapshotInfo &info);
+
+std::shared_ptr<virError> getLastError();
 
 class virDomainSnapshotImpl {
 public:
@@ -356,10 +356,10 @@ protected:
   std::shared_ptr<virDomain> domain_;
 };
 
-class virTool {
+class virHelper {
 public:
-  explicit virTool(bool enableEvent = false);
-  ~virTool();
+  explicit virHelper(bool enableEvent = false);
+  ~virHelper();
 
   // host
   /**
@@ -435,4 +435,4 @@ protected:
 };
 } // namespace virTool
 
-#endif //_VIRDEV_VIR_TOOL_H_
+#endif //_VIRDEV_VIR_IMPL_H_

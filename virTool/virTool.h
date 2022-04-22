@@ -1,5 +1,5 @@
-#ifndef _VIRDEV_VIRT_DEV_H_
-#define _VIRDEV_VIRT_DEV_H_
+#ifndef _VIRDEV_VIR_TOOL_H_
+#define _VIRDEV_VIR_TOOL_H_
 
 namespace virTool {
   void parseVersion();
@@ -17,4 +17,4 @@ namespace virTool {
   void parseDomainSnapshotList(const char* domainName);
 }
 
-#endif // _VIRDEV_VIRT_DEV_H_
+#endif // _VIRDEV_VIR_TOOL_H_
