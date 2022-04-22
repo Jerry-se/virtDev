@@ -11,11 +11,6 @@
 
 namespace virTool {
 
-class virToolDelegate {
-public:
-  virtual void PrintErrorMessage(virError *err) = 0;
-};
-
 struct domainDiskInfo {
   std::string driverName;
   std::string driverType;
@@ -75,7 +70,7 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int32_t revertDomainToThisSnapshot(int flags);
+  int revertDomainToThisSnapshot(int flags);
 
   /**
    * @brief 删除快照.
@@ -87,21 +82,21 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int32_t deleteSnapshot(int flags);
+  int deleteSnapshot(int flags);
 
-  int32_t getSnapshotName(std::string &name);
+  int getSnapshotName(std::string &name);
 
   std::shared_ptr<virDomainSnapshotImpl> getSnapshotParent();
 
-  int32_t getSnapshotXMLDesc(std::string &desc);
+  int getSnapshotXMLDesc(std::string &desc);
 
-  int32_t listAllSnapshotChilden();
+  int listAllSnapshotChilden();
 
-  int32_t listAllSnapshotChildenNames(std::vector<std::string> *names);
+  int listAllSnapshotChildenNames(std::vector<std::string> *names);
 
   int getSnapshotChildenNums();
 
-  int32_t getSnapshotInfo(domainSnapshotInfo &info);
+  int getSnapshotInfo(domainSnapshotInfo &info);
 
 protected:
   std::shared_ptr<virDomainSnapshot> snapshot_;
@@ -113,7 +108,7 @@ public:
   explicit virDomainImpl(virDomainPtr domain);
   ~virDomainImpl();
 
-  int32_t startDomain();
+  int startDomain();
 
   /**
    * @brief Suspends an active domain, the process is frozen without further access to CPU resources and I/O but the memory used by the domain
@@ -125,7 +120,7 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int32_t suspendDomain();
+  int suspendDomain();
 
   /**
    * @brief Resume a suspended domain, the process is restarted from the state where it was frozen by calling virDomainSuspend().
@@ -136,27 +131,27 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int32_t resumeDomain();
+  int resumeDomain();
 
-  int32_t rebootDomain(int flag = 0);
+  int rebootDomain(int flag = 0);
 
-  int32_t shutdownDomain();
+  int shutdownDomain();
 
-  int32_t destroyDomain();
+  int destroyDomain();
 
-  int32_t resetDomain();
+  int resetDomain();
 
-  int32_t undefineDomain();
+  int undefineDomain();
 
   // destroy, undefine domain and delete image file
-  int32_t deleteDomain();
+  int deleteDomain();
 
   /**
    * @brief Determine if the domain is currently running
    *
    * @return 1 if running, 0 if inactive, -1 on error
    */
-  int32_t isDomainActive();
+  int isDomainActive();
 
   // returns 0 in case of success and -1 in case of failure.
   int getDomainInfo(virDomainInfoPtr info);
@@ -204,7 +199,7 @@ public:
   // Queries the guest agent for the various information about the guest system. The reported data depends on the guest agent implementation.
   int getDomainGuestInfo();
 
-  int32_t getDomainDisks(std::vector<domainDiskInfo> &disks);
+  int getDomainDisks(std::vector<domainDiskInfo> &disks);
 
   int getDomainInterfaceAddress(unsigned int source = VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
 
@@ -289,7 +284,7 @@ public:
    *     -<em>-1</em> fail
    *     -<em>0</em> succeed
    */
-  int32_t listAllSnapshots(std::vector<std::shared_ptr<virDomainSnapshotImpl>> &snapshots, unsigned int flags);
+  int listAllSnapshots(std::vector<std::shared_ptr<virDomainSnapshotImpl>> &snapshots, unsigned int flags);
 
   /**
    * @brief 收集给定域的域快照列表，并将其名称存储在names. 使用的值nameslen可以由getSnapshotNums () 和flags 确定.
@@ -310,7 +305,7 @@ public:
    *
    * @return 找到的域快照数量或 -1 以防出错。调用者负责为数组的每个成员调用 free().
    */
-  int32_t listSnapshotNames(std::vector<std::string> &names, int nameslen, unsigned int flags);
+  int listSnapshotNames(std::vector<std::string> &names, int nameslen, unsigned int flags);
 
   /**
    * @brief 提供此域的快照数 。
@@ -321,15 +316,15 @@ public:
    *
    * @return 找到的域快照数量或 -1 以防出错。
    */
-  int32_t getSnapshotNums(unsigned int flags);
+  int getSnapshotNums(unsigned int flags);
 
-  int32_t blockCommit(const char *disk, const char *base, const char *top, unsigned long bandwith, unsigned int flags);
+  int blockCommit(const char *disk, const char *base, const char *top, unsigned long bandwith, unsigned int flags);
 
-  int32_t blockPull(const char *disk, unsigned long bandwith, unsigned int flags);
+  int blockPull(const char *disk, unsigned long bandwith, unsigned int flags);
 
-  int32_t blockRebase(const char *disk, const char *base, unsigned long bandwith, unsigned int flags);
+  int blockRebase(const char *disk, const char *base, unsigned long bandwith, unsigned int flags);
 
-  int32_t getBlockJobInfo(const char *disk, virDomainBlockJobInfoPtr info, unsigned int flags);
+  int getBlockJobInfo(const char *disk, virDomainBlockJobInfoPtr info, unsigned int flags);
 
 protected:
   std::shared_ptr<virDomain> domain_;

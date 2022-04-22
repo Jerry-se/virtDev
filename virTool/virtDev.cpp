@@ -31,21 +31,11 @@ namespace virTool {
   }
 
   static inline void PrintLastError() {
-    virError *err = virGetLastError();
+    std::shared_ptr<virError> err = getLastError();
     if (err) {
       std::cout << "vir error occured: " << err->message << std::endl;
-      virFreeError(err);
     }
   }
-
-  class virToolDelegateImpl : public virToolDelegate {
-  public:
-    virToolDelegateImpl() {}
-    ~virToolDelegateImpl() {}
-    void PrintErrorMessage(virError *err) override {
-      std::cout << "vir error occured: " << err->message << std::endl;
-    }
-  };
 
 /////////////////////////////////////////////////////////////////////////////////
 
