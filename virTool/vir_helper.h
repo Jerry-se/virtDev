@@ -1,5 +1,5 @@
-#ifndef _VIRDEV_VIR_IMPL_H_
-#define _VIRDEV_VIR_IMPL_H_
+#ifndef _VIR_HELPER_H_
+#define _VIR_HELPER_H_
 
 #include <memory>
 #include <string>
@@ -10,28 +10,28 @@
 #include <libvirt/virterror.h>
 #include <libvirt/libvirt-qemu.h>
 
-namespace virTool {
+namespace vir_helper {
 
 struct domainDiskInfo {
-  std::string driverName;
-  std::string driverType;
-  std::string sourceFile;
-  std::string targetDev;
-  std::string targetBus;
+  std::string driver_name;
+  std::string driver_type;
+  std::string source_file;
+  std::string target_dev;
+  std::string target_bus;
 };
 
 std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj);
 
-typedef struct virDomainInterfaceIPAddress virDomainIPAddress;
-struct virDomainInterfaceIPAddress {
+typedef struct domainInterfaceIPAddress domainIPAddress;
+struct domainInterfaceIPAddress {
   int type;                /* virIPAddrType */
   std::string addr;        /* IP address */
   unsigned int prefix;     /* IP address prefix */
 };
-struct virDomainInterface {
+struct domainInterface {
   std::string name;               /* interface name */
   std::string hwaddr;             /* hardware address, may be NULL */
-  std::vector<virDomainIPAddress> addrs;    /* array of IP addresses */
+  std::vector<domainIPAddress> addrs;    /* array of IP addresses */
 };
 
 struct domainSnapshotDiskInfo {
@@ -161,7 +161,7 @@ public:
 
   int getDomainDisks(std::vector<domainDiskInfo> &disks);
 
-  int getDomainInterfaceAddress(std::vector<virDomainInterface> &difaces, unsigned int source = VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
+  int getDomainInterfaceAddress(std::vector<domainInterface> &difaces, unsigned int source = VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
 
   int setDomainUserPassword(const char *user, const char *password);
 
@@ -435,4 +435,4 @@ protected:
 };
 } // namespace virTool
 
-#endif //_VIRDEV_VIR_IMPL_H_
+#endif // _VIR_HELPER_H_

@@ -1,4 +1,4 @@
-#include "virImpl.h"
+#include "vir_helper.h"
 #include <iostream>
 #include <iomanip>
 #include <stdlib.h>
@@ -63,7 +63,7 @@ struct virErrorDeleter {
   }
 };
 
-namespace virTool {
+namespace vir_helper {
 
 // enum virDomainState
 static const char* arrayDomainState[] = {"no state", "running", "blocked", "paused", "shutdown", "shutoff", "crashed", "pmsuspended", "last"};
@@ -94,6 +94,7 @@ int domain_event_lifecycle_cb(virConnectPtr conn, virDomainPtr dom, int event, i
   } else {
     DebugPrintf("unknowned event lifecycle\n");
   }
+  return 0;
 }
 
 void domain_event_agent_cb(virConnectPtr conn, virDomainPtr dom, int state, int reason, void *opaque) {
@@ -104,7 +105,7 @@ void domain_event_agent_cb(virConnectPtr conn, virDomainPtr dom, int state, int 
     if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
       domain_state = 0;
     }
-    DebugPrintf("event agent state: %s, reason: %s, domain state: %s\n",
+    DebugPrintf("domain: %s, event agent state: %s, reason: %s, domain state: %s\n", name,
       arrayEventAgentState[state], arrayEventAgentReason[reason], arrayDomainState[domain_state]);
   } else {
     DebugPrintf("unknowned event agent state\n");
@@ -119,7 +120,7 @@ void domain_event_block_job_cb(virConnectPtr conn, virDomainPtr dom, const char 
     if (virDomainGetState(dom, &domain_state, NULL, 0) < 0) {
       domain_state = 0;
     }
-    DebugPrintf("domain: %s, state: %s, block job type: %s, status: %s\n", disk,
+    DebugPrintf("domain: %s, disk: %s, state: %s, block job type: %s, status: %s\n", name, disk,
       arrayDomainState[domain_state], arrayBlockJobType[type], arrayBlockJobStatus[status]);
   } else {
     DebugPrintf("unknowned block job state\n");
@@ -167,10 +168,10 @@ static inline void PrintTypedParameter(virTypedParameterPtr params, int nparams)
 
 std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj) {
   std::cout << " ";
-  std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.targetDev;
-  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverName;
-  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driverType;
-  std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.sourceFile;
+  std::cout << std::setw(8) << std::setfill(' ') << std::left << obj.target_dev;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driver_name;
+  std::cout << std::setw(12) << std::setfill(' ') << std::left << obj.driver_type;
+  std::cout << std::setw(50) << std::setfill(' ') << std::left << obj.source_file;
   return out;
 }
 
@@ -428,9 +429,9 @@ int virDomainImpl::deleteDomain() {
   ret = undefineDomain();
   if (ret < 0) return ret;
   for (const auto& disk_file : disks) {
-    if (access(disk_file.sourceFile.c_str(), F_OK) != -1) {
-      remove(disk_file.sourceFile.c_str());
-      DebugPrintf("delete file: %s\n", disk_file.sourceFile.c_str());
+    if (access(disk_file.source_file.c_str(), F_OK) != -1) {
+      remove(disk_file.source_file.c_str());
+      DebugPrintf("delete file: %s\n", disk_file.source_file.c_str());
     }
   }
   return 0;
@@ -453,17 +454,17 @@ int virDomainImpl::getDomainDisks(std::vector<domainDiskInfo> &disks) {
       domainDiskInfo ddInfo;
       tinyxml2::XMLElement* disk_driver_node = disk_node->FirstChildElement("driver");
       if (disk_driver_node) {
-        ddInfo.driverName = disk_driver_node->Attribute("name");
-        ddInfo.driverType = disk_driver_node->Attribute("type");
+        ddInfo.driver_name = disk_driver_node->Attribute("name");
+        ddInfo.driver_type = disk_driver_node->Attribute("type");
       }
       tinyxml2::XMLElement* disk_source_node = disk_node->FirstChildElement("source");
       if (disk_source_node) {
-        ddInfo.sourceFile = disk_source_node->Attribute("file");
+        ddInfo.source_file = disk_source_node->Attribute("file");
       }
       tinyxml2::XMLElement* disk_target_node = disk_node->FirstChildElement("target");
       if (disk_target_node) {
-        ddInfo.targetDev = disk_target_node->Attribute("dev");
-        ddInfo.targetBus = disk_target_node->Attribute("bus");
+        ddInfo.target_dev = disk_target_node->Attribute("dev");
+        ddInfo.target_bus = disk_target_node->Attribute("bus");
       }
       disks.push_back(ddInfo);
       disk_node = disk_node->NextSiblingElement("disk");
@@ -475,12 +476,12 @@ int virDomainImpl::getDomainDisks(std::vector<domainDiskInfo> &disks) {
   return ret;
 }
 
-int virDomainImpl::getDomainInterfaceAddress(std::vector<virDomainInterface> &difaces, unsigned int source) {
+int virDomainImpl::getDomainInterfaceAddress(std::vector<domainInterface> &difaces, unsigned int source) {
   if (!domain_) return -1;
   virDomainInterfacePtr *ifaces = nullptr;
   int ifaces_count = 0;
   size_t i, j;
-  virDomainInterface diface;
+  domainInterface diface;
 
   if ((ifaces_count = virDomainInterfaceAddresses(domain_.get(), &ifaces, source, 0)) < 0)
     goto cleanup;
@@ -499,7 +500,7 @@ int virDomainImpl::getDomainInterfaceAddress(std::vector<virDomainInterface> &di
     for (j = 0; j < ifaces[i]->naddrs; j++) {
       virDomainIPAddressPtr ip_addr = ifaces[i]->addrs + j;
       DebugPrintf("[addr: %s prefix: %d type: %d]", ip_addr->addr, ip_addr->prefix, ip_addr->type);
-      diface.addrs.push_back(virDomainIPAddress{ip_addr->type, ip_addr->addr, ip_addr->prefix});
+      diface.addrs.push_back(domainIPAddress{ip_addr->type, ip_addr->addr, ip_addr->prefix});
     }
     DebugPrintf("\n");
     difaces.push_back(diface);
@@ -660,8 +661,8 @@ int virDomainImpl::getDomainFSInfo() {
     goto cleanup;
   for (int i = 0; i < fsInfos_count; i++) {
     DebugPrintf("device name:%s, mountpoint:%s, fstype:%s", fsInfos[i]->name, fsInfos[i]->mountpoint, fsInfos[i]->fstype);
-    for (int j = 0; j < fsInfos[i]->ndevAlias; j++) {
-      DebugPrintf(", devAlias%d:%s", j, fsInfos[i]->devAlias[j]);
+    for (size_t j = 0; j < fsInfos[i]->ndevAlias; j++) {
+      DebugPrintf(", devAlias%lu:%s", j, fsInfos[i]->devAlias[j]);
     }
     DebugPrintf("\n");
   }
@@ -677,10 +678,10 @@ cleanup:
 
 int virDomainImpl::getDomainGuestInfo() {
   if (!domain_) return -1;
-  virTypedParameterPtr *params = nullptr;
-  int nparams = 0;
-  // https://libvirt.org/news.html
-  // v5.7.0 (2019-09-03) add virDomainGetGuestInfo method
+//   virTypedParameterPtr *params = nullptr;
+//   int nparams = 0;
+//   // https://libvirt.org/news.html
+//   // v5.7.0 (2019-09-03) add virDomainGetGuestInfo method
 //   int ret = virDomainGetGuestInfo(domain_.get(), VIR_DOMAIN_GUEST_INFO_DISKS, &params, &nparams, 0);
 //   if (ret < 0)
 //     goto cleanup;

@@ -8,7 +8,8 @@
 #include <unistd.h>
 #include <iomanip>
 
-#include "virImpl.h"
+#include "vir_helper.h"
+using namespace vir_helper;
 
 namespace virTool {
   const static char* virUri = "qemu+tcp://localhost:16509/system";
@@ -134,7 +135,7 @@ namespace virTool {
       return;
     }
     int32_t try_count = 0;
-    std::vector<virDomainInterface> difaces;
+    std::vector<domainInterface> difaces;
     while (try_count ++ < 100) {
       std::cout << "get vm local ip try_count: " << try_count << std::endl;
       if (domain->getDomainInterfaceAddress(difaces) < 0)
@@ -284,7 +285,7 @@ namespace virTool {
     }
     auto domain = virTool_.openDomainByName(domainName);
     if (domain) {
-      std::vector<virDomainInterface> difaces;
+      std::vector<domainInterface> difaces;
       int ret = domain->getDomainInterfaceAddress(difaces, VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT);
       std::cout << "list domain ifconfig " << (ret < 0 ? "failed" : "ok") << std::endl;
     } else {
