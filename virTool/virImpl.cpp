@@ -374,6 +374,91 @@ int virDomainImpl::deleteDomain() {
   return 0;
 }
 
+int virDomainImpl::getDomainDisks(std::vector<domainDiskInfo> &disks) {
+  int ret = -1;
+  if (!domain_) return ret;
+  char* pContent = virDomainGetXMLDesc(domain_.get(), VIR_DOMAIN_XML_SECURE);
+  if (!pContent) return ret;
+  do {
+    tinyxml2::XMLDocument doc;
+    tinyxml2::XMLError err = doc.Parse(pContent);
+    if (err != tinyxml2::XML_SUCCESS) break;
+    tinyxml2::XMLElement* root = doc.RootElement();
+    tinyxml2::XMLElement* devices_node = root->FirstChildElement("devices");
+    if (!devices_node) break;
+    tinyxml2::XMLElement* disk_node = devices_node->FirstChildElement("disk");
+    while (disk_node) {
+      domainDiskInfo ddInfo;
+      tinyxml2::XMLElement* disk_driver_node = disk_node->FirstChildElement("driver");
+      if (disk_driver_node) {
+        ddInfo.driverName = disk_driver_node->Attribute("name");
+        ddInfo.driverType = disk_driver_node->Attribute("type");
+      }
+      tinyxml2::XMLElement* disk_source_node = disk_node->FirstChildElement("source");
+      if (disk_source_node) {
+        ddInfo.sourceFile = disk_source_node->Attribute("file");
+      }
+      tinyxml2::XMLElement* disk_target_node = disk_node->FirstChildElement("target");
+      if (disk_target_node) {
+        ddInfo.targetDev = disk_target_node->Attribute("dev");
+        ddInfo.targetBus = disk_target_node->Attribute("bus");
+      }
+      disks.push_back(ddInfo);
+      disk_node = disk_node->NextSiblingElement("disk");
+    }
+    ret = 0;
+  } while(0);
+
+  free(pContent);
+  return ret;
+}
+
+int virDomainImpl::getDomainInterfaceAddress(std::vector<virDomainInterface> &difaces, unsigned int source) {
+  if (!domain_) return -1;
+  virDomainInterfacePtr *ifaces = nullptr;
+  int ifaces_count = 0;
+  size_t i, j;
+  virDomainInterface diface;
+
+  if ((ifaces_count = virDomainInterfaceAddresses(domain_.get(), &ifaces, source, 0)) < 0)
+    goto cleanup;
+
+  for (i = 0; i < ifaces_count; i++) {
+    DebugPrintf("name: %s", ifaces[i]->name);
+    diface.name = ifaces[i]->name;
+    if (ifaces[i]->hwaddr) {
+      DebugPrintf(" hwaddr: %s", ifaces[i]->hwaddr);
+      diface.hwaddr = ifaces[i]->hwaddr;
+    } else {
+      diface.hwaddr.clear();
+    }
+
+    diface.addrs.clear();
+    for (j = 0; j < ifaces[i]->naddrs; j++) {
+      virDomainIPAddressPtr ip_addr = ifaces[i]->addrs + j;
+      DebugPrintf("[addr: %s prefix: %d type: %d]", ip_addr->addr, ip_addr->prefix, ip_addr->type);
+      diface.addrs.push_back(virDomainIPAddress{ip_addr->type, ip_addr->addr, ip_addr->prefix});
+    }
+    DebugPrintf("\n");
+    difaces.push_back(diface);
+  }
+
+cleanup:
+  if (ifaces && ifaces_count > 0) {
+    for (i = 0; i < ifaces_count; i++) {
+      virDomainInterfaceFree(ifaces[i]);
+    }
+  }
+  if (ifaces)
+    free(ifaces);
+  return ifaces_count;
+}
+
+int virDomainImpl::setDomainUserPassword(const char *user, const char *password) {
+  if (!domain_) return -1;
+  return virDomainSetUserPassword(domain_.get(), user, password, 0);
+}
+
 int virDomainImpl::isDomainActive() {
   if (!domain_) return -1;
   return virDomainIsActive(domain_.get());
@@ -382,6 +467,41 @@ int virDomainImpl::isDomainActive() {
 int virDomainImpl::getDomainInfo(virDomainInfoPtr info) {
   if (!domain_) return -1;
   return virDomainGetInfo(domain_.get(), info);
+}
+
+int virDomainImpl::getDomainCPUStats(virTypedParameterPtr params, unsigned int nparams, int start_cpu, unsigned int ncpus, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainGetCPUStats(domain_.get(), params, nparams, start_cpu, ncpus, flags);
+}
+
+int virDomainImpl::getDomainMemoryStats(virDomainMemoryStatPtr stats, unsigned int nr_stats, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainMemoryStats(domain_.get(), stats, nr_stats, flags);
+}
+
+int virDomainImpl::getDomainBlockInfo(const char *disk, virDomainBlockInfoPtr info, unsigned int flags) {
+  if (!domain_) return -1;
+  return virDomainGetBlockInfo(domain_.get(), disk, info, flags);
+}
+
+int virDomainImpl::getDomainBlockStats(const char *disk, virDomainBlockStatsPtr stats, size_t size) {
+  if (!domain_) return -1;
+  return virDomainBlockStats(domain_.get(), disk, stats, size);
+}
+
+int virDomainImpl::getDomainNetworkStats(const char *device, virDomainInterfaceStatsPtr stats, size_t size) {
+  if (!domain_) return -1;
+  return virDomainInterfaceStats(domain_.get(), device, stats, size);
+}
+
+std::string virDomainImpl::QemuAgentCommand(const char *cmd, int timeout, unsigned int flags) {
+  std::string ret;
+  char *result = virDomainQemuAgentCommand(domain_.get(), cmd, timeout, flags);
+  if (result) {
+    ret = result;
+    free(result);
+  }
+  return ret;
 }
 
 int virDomainImpl::getDomainState(int *state, int *reason, unsigned int flags) {
@@ -514,82 +634,6 @@ int virDomainImpl::getDomainGuestInfo() {
 //   }
 //   free(params);
   return 0;
-}
-
-int virDomainImpl::getDomainDisks(std::vector<domainDiskInfo> &disks) {
-  int ret = -1;
-  if (!domain_) return ret;
-  char* pContent = virDomainGetXMLDesc(domain_.get(), VIR_DOMAIN_XML_SECURE);
-  if (!pContent) return ret;
-  do {
-    tinyxml2::XMLDocument doc;
-    tinyxml2::XMLError err = doc.Parse(pContent);
-    if (err != tinyxml2::XML_SUCCESS) break;
-    tinyxml2::XMLElement* root = doc.RootElement();
-    tinyxml2::XMLElement* devices_node = root->FirstChildElement("devices");
-    if (!devices_node) break;
-    tinyxml2::XMLElement* disk_node = devices_node->FirstChildElement("disk");
-    while (disk_node) {
-      domainDiskInfo ddInfo;
-      tinyxml2::XMLElement* disk_driver_node = disk_node->FirstChildElement("driver");
-      if (disk_driver_node) {
-        ddInfo.driverName = disk_driver_node->Attribute("name");
-        ddInfo.driverType = disk_driver_node->Attribute("type");
-      }
-      tinyxml2::XMLElement* disk_source_node = disk_node->FirstChildElement("source");
-      if (disk_source_node) {
-        ddInfo.sourceFile = disk_source_node->Attribute("file");
-      }
-      tinyxml2::XMLElement* disk_target_node = disk_node->FirstChildElement("target");
-      if (disk_target_node) {
-        ddInfo.targetDev = disk_target_node->Attribute("dev");
-        ddInfo.targetBus = disk_target_node->Attribute("bus");
-      }
-      disks.push_back(ddInfo);
-      disk_node = disk_node->NextSiblingElement("disk");
-    }
-    ret = 0;
-  } while(0);
-
-  free(pContent);
-  return ret;
-}
-
-int virDomainImpl::getDomainInterfaceAddress(unsigned int source) {
-  if (!domain_) return -1;
-  virDomainInterfacePtr *ifaces = nullptr;
-  int ifaces_count = 0;
-  size_t i, j;
-
-  if ((ifaces_count = virDomainInterfaceAddresses(domain_.get(), &ifaces, source, 0)) < 0)
-    goto cleanup;
-
-  for (i = 0; i < ifaces_count; i++) {
-    DebugPrintf("name: %s", ifaces[i]->name);
-    if (ifaces[i]->hwaddr)
-      DebugPrintf(" hwaddr: %s", ifaces[i]->hwaddr);
-
-    for (j = 0; j < ifaces[i]->naddrs; j++) {
-      virDomainIPAddressPtr ip_addr = ifaces[i]->addrs + j;
-      DebugPrintf("[addr: %s prefix: %d type: %d]", ip_addr->addr, ip_addr->prefix, ip_addr->type);
-    }
-    DebugPrintf("\n");
-  }
-
-cleanup:
-  if (ifaces && ifaces_count > 0) {
-    for (i = 0; i < ifaces_count; i++) {
-      virDomainInterfaceFree(ifaces[i]);
-    }
-  }
-  if (ifaces)
-    free(ifaces);
-  return ifaces_count;
-}
-
-int virDomainImpl::setDomainUserPassword(const char *user, const char *password) {
-  if (!domain_) return -1;
-  return virDomainSetUserPassword(domain_.get(), user, password, 0);
 }
 
 std::shared_ptr<virDomainSnapshotImpl> virDomainImpl::createSnapshot(const char *xmlDesc, unsigned int flags) {

@@ -8,6 +8,7 @@
 
 #include <libvirt/libvirt.h>
 #include <libvirt/virterror.h>
+#include <libvirt/libvirt-qemu.h>
 
 namespace virTool {
 
@@ -20,6 +21,18 @@ struct domainDiskInfo {
 };
 
 std::ostream& operator<<(std::ostream& out, const domainDiskInfo& obj);
+
+typedef struct virDomainInterfaceIPAddress virDomainIPAddress;
+struct virDomainInterfaceIPAddress {
+  int type;                /* virIPAddrType */
+  std::string addr;        /* IP address */
+  unsigned int prefix;     /* IP address prefix */
+};
+struct virDomainInterface {
+  std::string name;               /* interface name */
+  std::string hwaddr;             /* hardware address, may be NULL */
+  std::vector<virDomainIPAddress> addrs;    /* array of IP addresses */
+};
 
 struct domainSnapshotDiskInfo {
   std::string name;
@@ -146,6 +159,12 @@ public:
   // destroy, undefine domain and delete image file
   int deleteDomain();
 
+  int getDomainDisks(std::vector<domainDiskInfo> &disks);
+
+  int getDomainInterfaceAddress(std::vector<virDomainInterface> &difaces, unsigned int source = VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
+
+  int setDomainUserPassword(const char *user, const char *password);
+
   /**
    * @brief Determine if the domain is currently running
    *
@@ -155,6 +174,19 @@ public:
 
   // returns 0 in case of success and -1 in case of failure.
   int getDomainInfo(virDomainInfoPtr info);
+
+  int getDomainCPUStats(virTypedParameterPtr params, unsigned int nparams, int start_cpu, unsigned int ncpus, unsigned int flags);
+
+  int getDomainMemoryStats(virDomainMemoryStatPtr stats, unsigned int nr_stats, unsigned int flags);
+
+  int getDomainBlockInfo(const char *disk, virDomainBlockInfoPtr info, unsigned int flags);
+
+  int getDomainBlockStats(const char *disk, virDomainBlockStatsPtr stats, size_t size);
+
+  int getDomainNetworkStats(const char *device, virDomainInterfaceStatsPtr stats, size_t size);
+
+  std::string QemuAgentCommand(const char *cmd, int timeout, unsigned int flags);
+
   // returns 0 in case of success and -1 in case of failure.
   int getDomainState(int *state, int *reason, unsigned int flags);
 
@@ -198,12 +230,6 @@ public:
 
   // Queries the guest agent for the various information about the guest system. The reported data depends on the guest agent implementation.
   int getDomainGuestInfo();
-
-  int getDomainDisks(std::vector<domainDiskInfo> &disks);
-
-  int getDomainInterfaceAddress(unsigned int source = VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_LEASE);
-
-  int setDomainUserPassword(const char *user, const char *password);
 
   /**
    * @brief 根据包含在 xmlDesc 中的快照 xml 创建域的新快照，并带有顶级元素 <domainsnapshot>

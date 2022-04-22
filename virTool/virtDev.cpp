@@ -196,9 +196,10 @@ std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
       return;
     }
     int32_t try_count = 0;
+    std::vector<virDomainInterface> difaces;
     while (try_count ++ < 100) {
       std::cout << "get vm local ip try_count: " << try_count << std::endl;
-      if (domain->getDomainInterfaceAddress() < 0)
+      if (domain->getDomainInterfaceAddress(difaces) < 0)
         PrintLastError();
       else
         break;
@@ -345,7 +346,8 @@ std::ostream& operator<<(std::ostream& out, const domainSnapshotInfo& obj) {
     }
     auto domain = virTool_.openDomainByName(domainName);
     if (domain) {
-      int ret = domain->getDomainInterfaceAddress(VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT);
+      std::vector<virDomainInterface> difaces;
+      int ret = domain->getDomainInterfaceAddress(difaces, VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT);
       std::cout << "list domain ifconfig " << (ret < 0 ? "failed" : "ok") << std::endl;
     } else {
       std::cout << "can not find domain: " << domainName << std::endl;
