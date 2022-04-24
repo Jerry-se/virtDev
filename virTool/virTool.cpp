@@ -41,8 +41,8 @@ namespace virTool {
 /////////////////////////////////////////////////////////////////////////////////
 
   void parseVersion() {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
@@ -50,35 +50,35 @@ namespace virTool {
     unsigned long libVer = 0;
     if (virHelper::getVersion(&libVer, NULL, NULL) == 0)
       std::cout << "virGetVersion: " << translateVirVer(libVer) << " " << libVer << std::endl;
-    if (virTool_.getConnectVersion(&libVer) == 0)
+    if (vir_helper.getConnectVersion(&libVer) == 0)
       std::cout << "virConnectGetVersion: " << translateVirVer(libVer) << " " << libVer << std::endl;
-    if (virTool_.getConnectLibVersion(&libVer) == 0)
+    if (vir_helper.getConnectLibVersion(&libVer) == 0)
       std::cout << "virConnectGetLibVersion: " << translateVirVer(libVer) << " " << libVer << std::endl;
   }
 
   void parseList() {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
     // 方法一，不推荐
-    // int nums = virTool_.ConnectNumOfDomains();
+    // int nums = vir_helper.ConnectNumOfDomains();
     // if (nums < 1) {
     //   std::cout << "found none domain" << std::endl;
     //   return;
     // }
     // int *ids = new int[nums];
-    // if (virTool_.ConnectListDomains(ids, nums) != -1) {
+    // if (vir_helper.ConnectListDomains(ids, nums) != -1) {
     //   for (int i = 0; i < nums; i++) {
-    //     if (virTool_.DomainLookupByID(ids[i])) {
+    //     if (vir_helper.DomainLookupByID(ids[i])) {
     //       virDomainInfo info;
-    //       if (virTool_.DomainGetInfo(&info) == 0) {
+    //       if (vir_helper.DomainGetInfo(&info) == 0) {
     //         std::cout << stringPrintf("domain id: %d, state: %hhu, maxMem: %lu, memory: %lu, nrVirtCpu: %hu, cpuTime: %llu",
     //         ids[i], info.state, info.maxMem, info.memory, info.nrVirtCpu, info.cpuTime) << std::endl;
     //       }
-    //       virTool_.DomainFree();
+    //       vir_helper.DomainFree();
     //     }
     //   }
     // }
@@ -86,7 +86,7 @@ namespace virTool {
     // 方法二
     virDomainPtr *domains;
     unsigned int flags = 0b11111111111111;// VIR_CONNECT_LIST_DOMAINS_RUNNING | VIR_CONNECT_LIST_DOMAINS_PERSISTENT;
-    int ret = virTool_.listAllDomains(&domains, flags);
+    int ret = vir_helper.listAllDomains(&domains, flags);
     if (ret < 0)
       std::cout << "virConnectListAllDomains error" << std::endl;
     for (int i = 0; i < ret; i++) {
@@ -122,13 +122,13 @@ namespace virTool {
       std::cout << "xml file is empty" << std::endl;
       return;
     }
-    virHelper virTool_(true);
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper(true);
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.createDomain(xml_content.c_str());
+    auto domain = vir_helper.createDomain(xml_content.c_str());
     if (!domain) {
       PrintLastError();
       std::cout << "create domain failed" << std::endl;
@@ -156,13 +156,13 @@ namespace virTool {
   }
 
   void parseStatsDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       int ret = domain->getDomainStatsList(VIR_DOMAIN_STATS_STATE | VIR_DOMAIN_STATS_CPU_TOTAL | VIR_DOMAIN_STATS_BALLOON |
         VIR_DOMAIN_STATS_VCPU | VIR_DOMAIN_STATS_INTERFACE | VIR_DOMAIN_STATS_BLOCK | VIR_DOMAIN_STATS_PERF);
@@ -174,13 +174,13 @@ namespace virTool {
   }
 
   void parseFSInfoDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       int ret = domain->getDomainFSInfo();
       std::cout << "fsinfo domain " << (ret < 0 ? "failed" : "ok") << std::endl;
@@ -191,13 +191,13 @@ namespace virTool {
   }
 
   void parseBlklistDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       // int ret = domain->getDomainBlockInfo("hda");
       // int ret = domain->getDomainBlockParameters();
@@ -226,13 +226,13 @@ namespace virTool {
   }
 
   void parseSuspendDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       int ret = domain->suspendDomain();
       std::cout << "suspend domain " << (ret < 0 ? "failed" : "ok") << std::endl;
@@ -243,13 +243,13 @@ namespace virTool {
   }
 
   void parseResumeDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       int ret = domain->resumeDomain();
       std::cout << "resume domain " << (ret < 0 ? "failed" : "ok") << std::endl;
@@ -260,13 +260,13 @@ namespace virTool {
   }
 
   void parseRebootDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       int ret = domain->rebootDomain(VIR_DOMAIN_REBOOT_ACPI_POWER_BTN | VIR_DOMAIN_REBOOT_GUEST_AGENT);
       std::cout << "reboot domain " << (ret < 0 ? "failed" : "ok") << std::endl;
@@ -277,13 +277,13 @@ namespace virTool {
   }
 
   void parseIflistDomain(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       std::vector<domainInterface> difaces;
       int ret = domain->getDomainInterfaceAddress(difaces, VIR_DOMAIN_INTERFACE_ADDRESSES_SRC_AGENT);
@@ -295,13 +295,13 @@ namespace virTool {
   }
 
   void parseDomainSnapshotList(const char* domainName) {
-    virHelper virTool_;
-    if (!virTool_.openConnect(virUri)) {
+    virHelper vir_helper;
+    if (!vir_helper.openConnect(virUri)) {
       PrintLastError();
       std::cout << "open connect failed" << std::endl;
       return;
     }
-    auto domain = virTool_.openDomainByName(domainName);
+    auto domain = vir_helper.openDomainByName(domainName);
     if (domain) {
       std::vector<std::shared_ptr<virDomainSnapshotImpl>> snaps;
       if (domain->listAllSnapshots(snaps, 1 << 10) < 0) {
