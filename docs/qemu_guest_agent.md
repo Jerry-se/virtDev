@@ -259,3 +259,4 @@ qemu对外提供了一个socket接口，主要用于解决虚机外部无法实�
 - [Qemu Guest Agent方式实现libvirt与虚机交互](https://blog.csdn.net/wuyongpeng0912/article/details/107846841)
 - [利用Qemu Guest Agent (Qemu-ga) 实现 Openstack 监控平台](https://blog.csdn.net/beckdon/article/details/51074566)
 - [通过QEMU-GuestAgent实现从外部注入写文件到KVM虚拟机内部](https://www.cnblogs.com/fzxiaomange/p/kvm-inject.html)
+- [基于QMP实现对qemu虚拟机进行交互](https://www.cnblogs.com/fzxiaomange/p/qmp-qemu-interactive.html)

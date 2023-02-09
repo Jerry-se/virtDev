@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<zabbix_export>
+    <version>5.0</version>
+    <date>2022-04-21T10:06:47Z</date>
+    <groups>
+        <group>
+            <name>dbc虚拟机监控</name>
+        </group>
+    </groups>
+    <templates>
+        <template>
+            <template>DBC VM Template</template>
+            <name>DBC VM Template</name>
+            <groups>
+                <group>
+                    <name>dbc虚拟机监控</name>
+                </group>
+            </groups>
+            <items>
+                <item>
+                    <name>dbc version</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dbc.version</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>disk 0 allocation</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.allocation</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>disk 0 capacity</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.capacity</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>disk 0 errs</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.errs</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>disk 0 name</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.name</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>disk 0 physical</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.physical</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>disk 0 rd_bytes</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.rd_bytes</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>disk 0 rd_req</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.rd_req</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>disk 0 rd_speed</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.rd_speed</key>
+                    <delay>30s</delay>
+                    <value_type>FLOAT</value_type>
+                    <units>B/s</units>
+                </item>
+                <item>
+                    <name>disk 0 wr_bytes</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.wr_bytes</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>disk 0 wr_req</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.wr_req</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>disk 0 wr_speed</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.0.wr_speed</key>
+                    <delay>30s</delay>
+                    <value_type>FLOAT</value_type>
+                    <units>B/s</units>
+                </item>
+                <item>
+                    <name>disk count</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>disk.count</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>dom cpuTime</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dom.cpuTime</key>
+                    <delay>30s</delay>
+                    <units>纳秒</units>
+                </item>
+                <item>
+                    <name>dom cpuUsage</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dom.cpuUsage</key>
+                    <delay>30s</delay>
+                    <value_type>FLOAT</value_type>
+                    <units>%</units>
+                </item>
+                <item>
+                    <name>dom maxMem</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dom.maxMem</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>1000</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>dom memory</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dom.memory</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>1000</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>dom nrVirtCpu</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dom.nrVirtCpu</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>dom state</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>dom.state</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>gpu 0 busId</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.busId</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>gpu 0 gpuUtilization</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.gpuUtilization</key>
+                    <delay>30s</delay>
+                    <units>%</units>
+                </item>
+                <item>
+                    <name>gpu 0 memFree</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.memFree</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>gpu 0 memTotal</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.memTotal</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>gpu 0 memUsed</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.memUsed</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>gpu 0 memUtilization</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.memUtilization</key>
+                    <delay>30s</delay>
+                    <units>%</units>
+                </item>
+                <item>
+                    <name>gpu 0 name</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.name</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>gpu 0 powerCap</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.powerCap</key>
+                    <delay>30s</delay>
+                    <units>W</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>0.001</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>gpu 0 powerUsage</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.powerUsage</key>
+                    <delay>30s</delay>
+                    <units>W</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>0.001</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>gpu 0 temperature</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.0.temperature</key>
+                    <delay>30s</delay>
+                    <units>C</units>
+                </item>
+                <item>
+                    <name>gpu count</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.count</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>gpu cudaVersion</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.cudaVersion</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>gpu graphicsDriverVersion</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.graphicsDriverVersion</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>gpu nvmlVersion</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>gpu.nvmlVersion</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>memory available</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>memory.available</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>1000</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>memory total</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>memory.total</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>1000</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>memory unused</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>memory.unused</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                    <preprocessing>
+                        <step>
+                            <type>MULTIPLIER</type>
+                            <params>1000</params>
+                        </step>
+                    </preprocessing>
+                </item>
+                <item>
+                    <name>memory usage</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>memory.usage</key>
+                    <delay>30s</delay>
+                    <value_type>FLOAT</value_type>
+                    <units>%</units>
+                </item>
+                <item>
+                    <name>net 0 name</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.name</key>
+                    <delay>30s</delay>
+                    <trends>0</trends>
+                    <value_type>TEXT</value_type>
+                </item>
+                <item>
+                    <name>net 0 rx_bytes</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.rx_bytes</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>net 0 rx_drop</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.rx_drop</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>net 0 rx_errs</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.rx_errs</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>net 0 rx_packets</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.rx_packets</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>net 0 rx_speed</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.rx_speed</key>
+                    <delay>30s</delay>
+                    <value_type>FLOAT</value_type>
+                    <units>B/s</units>
+                </item>
+                <item>
+                    <name>net 0 tx_bytes</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.tx_bytes</key>
+                    <delay>30s</delay>
+                    <units>B</units>
+                </item>
+                <item>
+                    <name>net 0 tx_drop</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.tx_drop</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>net 0 tx_errs</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.tx_errs</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>net 0 tx_packets</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.tx_packets</key>
+                    <delay>30s</delay>
+                </item>
+                <item>
+                    <name>net 0 tx_speed</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.0.tx_speed</key>
+                    <delay>30s</delay>
+                    <value_type>FLOAT</value_type>
+                    <units>B/s</units>
+                </item>
+                <item>
+                    <name>net count</name>
+                    <type>ZABBIX_ACTIVE</type>
+                    <key>net.count</key>
+                    <delay>30s</delay>
+                </item>
+            </items>
+        </template>
+    </templates>
+</zabbix_export>
